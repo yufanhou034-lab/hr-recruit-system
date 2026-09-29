@@ -1,0 +1,77 @@
+{
+  "name": "hr-recruit-system",
+  "version": "1.0.0",
+  "description": "HR 招聘管理系统 - 简历池、岗位管理、初筛打分、跟进看板、面试评估、人才库",
+  "main": "src/main/main.js",
+  "author": "HR Tools",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "dev": "electron .",
+    "start": "electron .",
+    "pack": "electron-builder --win dir",
+    "dist": "electron-builder --win nsis"
+  },
+  "dependencies": {
+    "iconv-lite": "^0.6.3",
+    "mammoth": "^1.8.0",
+    "pdf-parse": "^1.1.1",
+    "tesseract.js": "^5.1.1",
+    "xlsx": "^0.18.5"
+  },
+  "optionalDependencies": {
+    "textract": "^2.5.0"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "config": {
+    "electron_mirror": "https://npmmirror.com/mirrors/electron/",
+    "electron_builder_binaries_mirror": "https://npmmirror.com/mirrors/electron-builder-binaries/"
+  },
+  "build": {
+    "appId": "com.hrtools.recruit",
+    "productName": "HR招聘管理系统",
+    "copyright": "Copyright © 2026 HR Tools",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "docs/**/*",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "asarUnpack": [
+      "node_modules/tesseract.js/**",
+      "node_modules/tesseract.js-core/**"
+    ],
+    "electronDownload": {
+      "mirror": "https://npmmirror.com/mirrors/electron/"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "signAndEditExecutable": false,
+      "artifactName": "${productName}-${version}-setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "HR招聘管理系统",
+      "deleteAppDataOnUninstall": false
+    }
+  }
+}
