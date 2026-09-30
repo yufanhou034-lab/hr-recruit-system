@@ -59,9 +59,9 @@
   function updateBadges() {
     const raw = HR.data.raw;
     const counts = {
-      pool: raw.resumes.length,
+      pool: raw.candidates.length,
       kanban: raw.applications.filter((a) => HR.ACTIVE_STATUS.indexOf(a.status) >= 0).length,
-      talent: raw.resumes.filter((r) => r.inTalentPool).length
+      talent: raw.candidates.filter((r) => r.inTalentPool).length
     };
     Object.keys(counts).forEach((k) => {
       const el = document.querySelector('[data-badge="' + k + '"]');
@@ -152,7 +152,7 @@
       } catch (err) {
         seeded = '1';
       }
-      if (!seeded && !HR.data.raw.jobs.length && !HR.data.raw.resumes.length) {
+      if (!seeded && !HR.data.raw.jobs.length && !HR.data.raw.candidates.length) {
         HR.data.raw = HR.demoData.build();
         HR.data.normalize();
         await HR.data.persist();

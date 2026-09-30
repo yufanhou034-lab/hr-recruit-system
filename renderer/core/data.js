@@ -4,19 +4,19 @@
   const util = HR.util;
 
   const data = {
-    raw: { version: 1, jobs: [], resumes: [], applications: [] },
+    raw: { version: 1, jobs: [], candidates: [], applications: [] },
 
     /* ---------- 读写 ---------- */
     async load() {
       const d = await window.api.loadData();
-      this.raw = Object.assign({ version: 1, jobs: [], resumes: [], applications: [] }, d || {});
+      this.raw = Object.assign({ version: 1, jobs: [], candidates: [], applications: [] }, d || {});
       this.normalize();
       return this.raw;
     },
 
     normalize() {
       const raw = this.raw;
-      ['jobs', 'resumes', 'applications'].forEach((k) => {
+      ['jobs', 'candidates', 'applications'].forEach((k) => {
         if (!Array.isArray(raw[k])) raw[k] = [];
       });
       raw.jobs.forEach((j) => {
@@ -31,7 +31,7 @@
         j.rules.exclude = j.rules.exclude.map((r) => (typeof r === 'string' ? { text: r } : { text: (r && r.text) || '' }));
         if (typeof j.archived !== 'boolean') j.archived = !!j.archived;
       });
-      raw.resumes.forEach((r) => {
+      raw.candidates.forEach((r) => {
         if (!Array.isArray(r.tags)) r.tags = [];
         if (typeof r.inTalentPool !== 'boolean') r.inTalentPool = !!r.inTalentPool;
         if (!r.createdAt) r.createdAt = util.now();
@@ -64,7 +64,7 @@
       return this.raw.jobs.find((j) => j.id === id) || null;
     },
     resume(id) {
-      return this.raw.resumes.find((r) => r.id === id) || null;
+      return this.raw.candidates.find((r) => r.id === id) || null;
     },
     application(id) {
       return this.raw.applications.find((a) => a.id === id) || null;
@@ -81,14 +81,14 @@
     findByPhoneOrEmail(phone, email) {
       const mail = String(email || '').toLowerCase();
       return (
-        this.raw.resumes.find(
+        this.raw.candidates.find(
           (r) => (phone && r.phone && r.phone === phone) || (mail && r.email && String(r.email).toLowerCase() === mail)
         ) || null
       );
     },
     allTags() {
       const set = new Set();
-      this.raw.resumes.forEach((r) => (r.tags || []).forEach((t) => set.add(t)));
+      this.raw.candidates.forEach((r) => (r.tags || []).forEach((t) => set.add(t)));
       return [...set].sort();
     },
 
@@ -143,7 +143,7 @@
         },
         info || {}
       );
-      this.raw.resumes.push(r);
+      this.raw.candidates.push(r);
       return r;
     },
     updateResume(id, patch) {
@@ -153,7 +153,7 @@
       return r;
     },
     removeResume(id) {
-      this.raw.resumes = this.raw.resumes.filter((r) => r.id !== id);
+      this.raw.candidates = this.raw.candidates.filter((r) => r.id !== id);
       this.raw.applications = this.raw.applications.filter((a) => a.resumeId !== id);
     },
     toggleTag(id, tag) {
@@ -238,7 +238,7 @@
 
   /** 清空全部数据 */
   data.clearAll = function () {
-    this.raw = { version: 1, jobs: [], resumes: [], applications: [], updatedAt: util.now() };
+    this.raw = { version: 1, jobs: [], candidates: [], applications: [], updatedAt: util.now() };
   };
 
   HR.data = data;

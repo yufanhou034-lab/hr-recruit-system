@@ -17,25 +17,26 @@
         '</div>'
       : '<div class="card"><div class="card-head"><h3>📁 数据存储位置</h3></div>' +
         '<div class="muted small" id="stPath" style="word-break:break-all;margin-bottom:8px">加载中…</div>' +
+        '<div class="muted small" style="margin-bottom:8px">所有岗位、候选人、投递记录都实时写在这个 <b>data.json</b> 文件里，关掉应用再打开也不会丢。直接复制这个文件就是一份完整备份。</div>' +
         '<button class="btn ghost" id="stOpenDir">打开数据文件夹</button>' +
-        '<button class="btn ghost" id="stOpenFile" style="margin-left:8px">显示数据文件</button>' +
+        '<button class="btn ghost" id="stOpenFile" style="margin-left:8px">显示 data.json</button>' +
         '</div>';
 
     el.innerHTML =
       '<div class="grid-2">' +
       '<div class="card"><div class="card-head"><h3>💾 数据备份</h3></div>' +
       '<div class="field"><label>导出全部数据</label>' +
-      '<div class="muted small" style="margin-bottom:6px">把岗位、简历池、投递记录全部导出为一个 JSON 文件' + (isWeb ? '（直接下载）。' : '（走系统保存对话框）。') + '</div>' +
-      '<button class="btn" id="stExport">导出为 JSON</button></div>' +
+      '<div class="muted small" style="margin-bottom:6px">把当前 data.json 完整复制一份到你选择的位置' + (isWeb ? '（直接下载）。' : '（弹出系统保存对话框）。') + '换电脑时带过去即可。</div>' +
+      '<button class="btn" id="stExport">导出数据</button></div>' +
       '<div class="field"><label>导入数据</label>' +
-      '<div class="muted small" style="margin-bottom:6px">选择之前导出的 JSON 文件，可选「合并」或「覆盖」。</div>' +
-      '<button class="btn ghost" id="stImport">导入 JSON 文件</button></div>' +
+      '<div class="muted small" style="margin-bottom:6px">选择一个之前导出的 JSON 文件，<b>覆盖</b>当前全部数据。</div>' +
+      '<button class="btn ghost" id="stImport">导入数据</button></div>' +
       '</div>' +
 
       '<div class="card"><div class="card-head"><h3>📊 当前数据量</h3></div>' +
       '<dl class="kv">' +
       '<dt>岗位</dt><dd>' + raw.jobs.length + ' 个（在招 ' + raw.jobs.filter((j) => !j.archived).length + ' 个）</dd>' +
-      '<dt>简历</dt><dd>' + raw.resumes.length + ' 份（人才库 ' + raw.resumes.filter((r) => r.inTalentPool).length + ' 份）</dd>' +
+      '<dt>简历</dt><dd>' + raw.candidates.length + ' 份（人才库 ' + raw.candidates.filter((r) => r.inTalentPool).length + ' 份）</dd>' +
       '<dt>投递记录</dt><dd>' + raw.applications.length + ' 条</dd>' +
       '<dt>面试记录</dt><dd>' + raw.applications.reduce((n, a) => n + (a.interviews || []).length, 0) + ' 条</dd>' +
       '<dt>最近保存</dt><dd id="stSaved">' + util.fmtDateTime(raw.updatedAt || util.now()) + '</dd>' +
@@ -62,22 +63,21 @@
         : 'Electron 桌面应用，数据全部保存在本机，不上传任何服务器。') + '</dd>' +
       '</dl></div>';
 
-    el.querySelector('#stExport').addEventListener('click', exportJson);
-    el.querySelector('#stImport').addEventListener('click', importJson);
+    el.querySelector('#stExport').addEventListener('click', exportDataFile);
+    el.querySelector('#stImport').addEventListener('click', importDataFile);
     el.querySelector('#stClear').addEventListener('click', clearAll);
 
     const openDirBtn = el.querySelector('#stOpenDir');
     if (openDirBtn) {
       openDirBtn.addEventListener('click', async () => {
-        if (!info) return;
-        await window.api.openPath(info.userDataPath);
+        await window.api.openDataFolder();
       });
     }
     const openFileBtn = el.querySelector('#stOpenFile');
     if (openFileBtn) {
       openFileBtn.addEventListener('click', async () => {
-        if (!info) return;
-        await window.api.showItemInFolder(info.dataFilePath);
+        const res = await window.api.getDataPath();
+        window.api.showItemInFolder(res.file);
       });
     }
     const seedBtn = el.querySelector('#stSeed');
@@ -118,73 +118,39 @@
       : 'Electron ' + info.electron + ' · Node ' + info.node + ' · Chromium ' + info.chrome;
   }
 
-  async function exportJson() {
-    const content = JSON.stringify(
-      Object.assign({}, HR.data.raw, { exportedAt: util.now(), app: 'HR 招聘管理系统' }),
-      null,
-      2
-    );
-    const res = await window.api.saveTextFile({
-      title: '导出全部数据',
-      defaultPath: 'HR招聘数据_' + util.fmtDate(util.now()) + '.json',
-      filters: [{ name: 'JSON 文件', extensions: ['json'] }],
-      content: content
-    });
-    if (res.canceled) return;
-    HR.ui.toast('已导出：' + res.path, 'success');
+  /** 导出：把 data.json 复制到用户选定的位置 */
+  async function exportDataFile() {
+    try {
+      const res = await window.api.exportData();
+      if (!res || res.canceled) return;
+      HR.ui.toast('数据已导出到：' + res.path, 'success');
+    } catch (err) {
+      HR.ui.toast('导出失败：' + (err.message || err), 'error');
+    }
   }
 
-  async function importJson() {
-    const res = await window.api.openJsonFile();
-    if (res.canceled) return;
-    let incoming;
+  /** 导入：选一个 json 覆盖当前数据 */
+  async function importDataFile() {
+    const ok = await HR.ui.confirm(
+      '导入数据',
+      '导入会用所选 JSON 文件的内容覆盖当前全部数据（岗位 / 候选人 / 投递记录）。建议先点「导出数据」留一份备份。',
+      '选择文件并覆盖'
+    );
+    if (!ok) return;
     try {
-      incoming = JSON.parse(res.content);
+      const res = await window.api.importData();
+      if (!res || res.canceled) return;
+      if (res.error || !res.data) {
+        HR.ui.toast('导入失败：文件不是合法的数据文件', 'error');
+        return;
+      }
+      HR.data.raw = Object.assign({ version: 1, jobs: [], candidates: [], applications: [] }, res.data);
+      HR.data.normalize();
+      HR.refresh();
+      HR.ui.toast('已导入并覆盖：' + (res.from || res.path || ''), 'success');
     } catch (err) {
-      HR.ui.toast('文件不是合法的 JSON', 'error');
-      return;
+      HR.ui.toast('导入失败：文件不是合法的数据文件', 'error');
     }
-    if (!incoming || typeof incoming !== 'object') {
-      HR.ui.toast('文件内容格式不正确', 'error');
-      return;
-    }
-    const counts =
-      (incoming.jobs || []).length + ' 个岗位 / ' + (incoming.resumes || []).length + ' 份简历 / ' +
-      (incoming.applications || []).length + ' 条投递记录';
-    const choice = await HR.ui.choose('导入数据', '文件中共有 ' + counts + '。请选择导入方式：', [
-      { label: '合并（保留现有数据）', value: 'merge' },
-      { label: '覆盖（清空后导入）', value: 'replace', kind: 'danger' },
-      { label: '取消', value: 'cancel', kind: 'ghost' }
-    ]);
-    if (!choice || choice === 'cancel') return;
-
-    if (choice === 'replace') {
-      HR.data.raw = Object.assign(
-        { version: 1, jobs: [], resumes: [], applications: [] },
-        {
-          jobs: incoming.jobs || [],
-          resumes: incoming.resumes || [],
-          applications: incoming.applications || []
-        }
-      );
-    } else {
-      const mergeById = (target, source, prefix) => {
-        const seen = new Set(target.map((x) => x.id));
-        (source || []).forEach((item) => {
-          if (!item || !item.id) item = Object.assign({}, item, { id: util.uid(prefix) });
-          if (seen.has(item.id)) item = Object.assign({}, item, { id: util.uid(prefix) });
-          seen.add(item.id);
-          target.push(item);
-        });
-      };
-      mergeById(HR.data.raw.jobs, incoming.jobs, 'job');
-      mergeById(HR.data.raw.resumes, incoming.resumes, 'res');
-      mergeById(HR.data.raw.applications, incoming.applications, 'app');
-    }
-    HR.data.normalize();
-    await HR.data.persist();
-    HR.refresh();
-    HR.ui.toast(choice === 'replace' ? '已覆盖导入' : '已合并导入', 'success');
   }
 
   function clearAll() {

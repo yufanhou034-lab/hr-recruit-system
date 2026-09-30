@@ -36,7 +36,7 @@
       el.innerHTML =
         '<div class="stat-row">' +
         statCard('🏢', '', jobs.length, '在招岗位') +
-        statCard('📄', 'green', raw.resumes.length, '简历总数') +
+        statCard('📄', 'green', raw.candidates.length, '简历总数') +
         statCard('🔍', 'yellow', pendingScreen, '待初筛') +
         statCard('🗣️', 'red', pendingInterview, '待面试') +
         '</div>' +
@@ -106,13 +106,13 @@
     const raw = HR.data.raw;
     const counts = {};
     HR.SOURCES.forEach((s) => (counts[s] = 0));
-    raw.resumes.forEach((r) => {
+    raw.candidates.forEach((r) => {
       const s = r.source || '其他';
       counts[s] = (counts[s] || 0) + 1;
     });
     const keys = Object.keys(counts).filter((k) => counts[k] > 0 || HR.SOURCES.indexOf(k) >= 0);
     const max = Math.max(1, ...keys.map((k) => counts[k]));
-    const total = raw.resumes.length || 1;
+    const total = raw.candidates.length || 1;
     box.innerHTML = keys
       .map((k) => {
         const c = counts[k];
@@ -138,7 +138,7 @@
       });
     }
     const index = new Map(days.map((d, i) => [d.key, i]));
-    raw.resumes.forEach((r) => {
+    raw.candidates.forEach((r) => {
       const key = util.fmtDate(r.createdAt);
       if (index.has(key)) days[index.get(key)].count++;
     });

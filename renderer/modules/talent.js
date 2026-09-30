@@ -7,14 +7,14 @@
   const state = { tag: '', matchJobId: '', matches: null };
 
   function talentList() {
-    return HR.data.raw.resumes
+    return HR.data.raw.candidates
       .filter((r) => r.inTalentPool)
       .filter((r) => !state.tag || (r.tags || []).includes(state.tag))
       .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
   }
 
   function render(el) {
-    const all = HR.data.raw.resumes.filter((r) => r.inTalentPool);
+    const all = HR.data.raw.candidates.filter((r) => r.inTalentPool);
     const rows = talentList();
     const tags = HR.data.allTags();
     const jobs = HR.data.jobs(false);
@@ -141,7 +141,7 @@
       HR.ui.toast('该岗位还没有填写 JD 正文，无法计算匹配度', 'error');
       return;
     }
-    const scored = HR.data.raw.resumes
+    const scored = HR.data.raw.candidates
       .filter((r) => r.inTalentPool && r.text)
       .map((r) => ({ resumeId: r.id, score: HR.scoring.jdSimilarity(job.jd, r.text) * 100 }))
       .filter((m) => m.score > 0)

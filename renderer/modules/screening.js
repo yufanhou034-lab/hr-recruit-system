@@ -15,7 +15,7 @@
     if (!state.jobId || !HR.data.job(state.jobId)) state.jobId = jobs[0].id;
     const job = HR.data.job(state.jobId);
     const apps = HR.data.appsOfJob(job.id);
-    const poolResumes = HR.data.raw.resumes.filter((r) => !r.inTalentPool);
+    const poolResumes = HR.data.raw.candidates.filter((r) => !r.inTalentPool);
     const pendingAdd = poolResumes.filter((r) => !HR.data.appOf(r.id, job.id)).length;
     const scored = apps.filter((a) => a.score);
     const unscored = apps.filter((a) => !a.score);
@@ -157,7 +157,7 @@
 
   async function addFromPool(jobId) {
     let n = 0;
-    HR.data.raw.resumes.forEach((r) => {
+    HR.data.raw.candidates.forEach((r) => {
       if (r.inTalentPool) return;
       if (HR.data.appOf(r.id, jobId)) return;
       HR.data.addApplication({ resumeId: r.id, jobId: jobId, status: 'pending_screen' });

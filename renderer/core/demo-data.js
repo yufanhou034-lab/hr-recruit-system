@@ -320,7 +320,7 @@
     byName['张诗涵'].inTalentPool = true;
     byName['张诗涵'].tags = ['待定'];
 
-    return { version: 1, jobs: jobs, resumes: resumes, applications: applications, updatedAt: util.now() };
+    return { version: 1, jobs: jobs, candidates: resumes, applications: applications, updatedAt: util.now() };
   }
 
   HR.demoData = { build: build };

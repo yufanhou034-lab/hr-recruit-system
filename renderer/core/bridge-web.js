@@ -234,7 +234,86 @@
 
     saveTextFile: (opts) => downloadText(opts),
 
-    openJsonFile: () => pickWithInput({ accept: '.json,application/json', readText: true }),
+    getDataPath: () => Promise.resolve({ dir: '浏览器本地存储', file: 'IndexedDB · ' + DB_NAME }),
+
+    exportData: async () => {
+      let data = window.HR.data.raw;
+      const raw = await kvGet(DATA_KEY);
+      if (raw) {
+        try {
+          data = JSON.parse(raw);
+        } catch (err) {
+          /* 用内存里的数据兜底 */
+        }
+      }
+      return downloadText({
+        defaultPath: 'HR招聘数据_' + new Date().toISOString().slice(0, 10) + '.json',
+        content: JSON.stringify(
+          Object.assign({}, data, { exportedAt: new Date().toISOString(), app: 'HR 招聘管理系统' }),
+          null,
+          2
+        )
+      });
+    },
+
+    importData: () =>
+      new Promise((resolve) => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json,application/json';
+        input.style.display = 'none';
+        document.body.appendChild(input);
+
+        let changeFired = false;
+        let done = false;
+        const finish = (v) => {
+          if (done) return;
+          done = true;
+          input.remove();
+          resolve(v);
+        };
+
+        input.addEventListener('change', () => {
+          changeFired = true;
+          const f = input.files && input.files[0];
+          if (!f) {
+            finish({ canceled: true });
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = async () => {
+            let parsed;
+            try {
+              parsed = JSON.parse(String(reader.result || ''));
+            } catch (err) {
+              finish({ canceled: false, error: 'invalid-json', from: f.name });
+              return;
+            }
+            if (!parsed || typeof parsed !== 'object') {
+              finish({ canceled: false, error: 'invalid-json', from: f.name });
+              return;
+            }
+            await kvPut(DATA_KEY, JSON.stringify(parsed));
+            finish({ canceled: false, from: f.name, data: parsed });
+          };
+          reader.onerror = () => finish({ canceled: false, error: 'read-error', from: f.name });
+          reader.readAsText(f);
+        });
+
+        window.addEventListener(
+          'focus',
+          () => {
+            setTimeout(() => {
+              if (!changeFired) finish({ canceled: true });
+            }, 600);
+          },
+          { once: true }
+        );
+
+        input.click();
+      }),
+
+    openDataFolder: () => Promise.resolve(false),
 
     openPath: () => Promise.resolve(false),
     showItemInFolder: () => Promise.resolve(false),

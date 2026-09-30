@@ -2,17 +2,18 @@
   "name": "hr-recruit-system",
   "version": "1.0.0",
   "description": "HR 招聘管理系统 - 简历池、岗位管理、初筛打分、跟进看板、面试评估、人才库",
-  "main": "src/main/main.js",
+  "main": "main.js",
   "author": "HR Tools",
   "license": "MIT",
   "private": true,
   "scripts": {
     "dev": "electron .",
     "start": "electron .",
-    "pack": "electron-builder --win dir",
-    "dist": "electron-builder --win nsis"
+    "pack": "electron-builder --win dir --publish never",
+    "dist": "electron-builder --win nsis --publish never"
   },
   "dependencies": {
+    "electron-store": "^8.2.0",
     "iconv-lite": "^0.6.3",
     "mammoth": "^1.8.0",
     "pdf-parse": "^1.1.1",
@@ -39,8 +40,10 @@
       "buildResources": "build"
     },
     "files": [
-      "src/**/*",
-      "docs/**/*",
+      "main.js",
+      "preload.js",
+      "lib/**/*",
+      "renderer/**/*",
       "package.json",
       "node_modules/**/*"
     ],

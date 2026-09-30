@@ -20,7 +20,7 @@
   }
 
   function filtered() {
-    return HR.data.raw.resumes
+    return HR.data.raw.candidates
       .filter(matches)
       .slice()
       .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));

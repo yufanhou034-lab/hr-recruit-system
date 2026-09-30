@@ -1,12 +1,22 @@
 'use strict';
 /**
- * 主进程入口：窗口、托盘、窗口状态记忆、IPC 注册。
+ * 主进程入口
+ *  - 1280×800 主窗口，最小 1024×640，记住上次窗口大小和位置
+ *  - 关闭按钮 → 最小化到系统托盘（右键托盘：打开主窗口 / 退出）
+ *  - 数据持久化交给 lib/store.js（userData/data.json）
  */
-const { app, BrowserWindow, Tray, Menu, nativeImage, screen } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, screen, dialog } = require('electron');
 const path = require('path');
-const store = require('./store');
-const { registerIpc } = require('./ipc');
-const { createTrayIconPng } = require('./icon');
+const store = require('./lib/store');
+const { registerIpc } = require('./lib/ipc');
+const { createTrayIconPng } = require('./lib/icon');
+
+const APP_NAME = 'HR招聘管理系统';
+
+// 固定应用名与数据目录：保证「开发模式」和「打包后」写到同一个 userData，
+// 否则两者可能解析出不同的默认目录，看起来就像"数据没保存"。
+app.setName(APP_NAME);
+app.setPath('userData', path.join(app.getPath('appData'), APP_NAME));
 
 let mainWindow = null;
 let tray = null;
@@ -35,13 +45,33 @@ app.on('activate', () => showMainWindow());
 
 function onReady() {
   app.setAppUserModelId('com.hrtools.recruit');
-  registerIpc({ getWindow: () => mainWindow });
+
+  // 启动即确保 data.json 存在，并打印路径，方便排查数据位置
+  try {
+    const file = store.ensureFile();
+    console.log('[data] ' + file);
+  } catch (err) {
+    dialog.showErrorBox('数据目录不可用', '无法创建数据文件：\n' + (err.message || err));
+  }
+
+  registerIpc();
   createWindow();
   createTray();
 }
 
-function defaultBounds() {
-  return { width: 1280, height: 800 };
+function loadBounds() {
+  const s = store.loadWindowState() || {};
+  const b = { width: 1280, height: 800 };
+  if (Number.isFinite(s.width) && s.width >= 1024) b.width = s.width;
+  if (Number.isFinite(s.height) && s.height >= 640) b.height = s.height;
+  if (Number.isFinite(s.x) && Number.isFinite(s.y)) {
+    const cand = { x: s.x, y: s.y, width: b.width, height: b.height };
+    if (isOnScreen(cand)) {
+      b.x = s.x;
+      b.y = s.y;
+    }
+  }
+  return b;
 }
 
 function isOnScreen(bounds) {
@@ -60,21 +90,6 @@ function isOnScreen(bounds) {
   }
 }
 
-function loadBounds() {
-  const s = store.loadWindowState() || {};
-  const b = defaultBounds();
-  if (Number.isFinite(s.width) && s.width >= 1024) b.width = s.width;
-  if (Number.isFinite(s.height) && s.height >= 640) b.height = s.height;
-  if (Number.isFinite(s.x) && Number.isFinite(s.y)) {
-    const cand = { x: s.x, y: s.y, width: b.width, height: b.height };
-    if (isOnScreen(cand)) {
-      b.x = s.x;
-      b.y = s.y;
-    }
-  }
-  return b;
-}
-
 function createWindow() {
   const bounds = loadBounds();
   mainWindow = new BrowserWindow({
@@ -86,7 +101,7 @@ function createWindow() {
     minHeight: 640,
     show: false,
     backgroundColor: '#f4f6fa',
-    title: 'HR 招聘管理系统',
+    title: APP_NAME,
     autoHideMenuBar: true,
     icon: nativeImage.createFromBuffer(createTrayIconPng(256)),
     webPreferences: {
@@ -98,8 +113,7 @@ function createWindow() {
     }
   });
 
-  // 与网页版（GitHub Pages）共用同一份渲染层代码，位于 docs/
-  mainWindow.loadFile(path.join(__dirname, '..', '..', 'docs', 'index.html'));
+  mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
@@ -140,10 +154,11 @@ function saveWindowState() {
 function createTray() {
   const image = nativeImage.createFromBuffer(createTrayIconPng(32));
   tray = new Tray(image);
-  tray.setToolTip('HR 招聘管理系统');
+  tray.setToolTip(APP_NAME);
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: '打开主窗口', click: () => showMainWindow() },
+      { label: '打开数据文件夹', click: () => require('electron').shell.openPath(store.userDataDir()) },
       { type: 'separator' },
       {
         label: '退出',
@@ -175,8 +190,8 @@ function showTrayTipOnce() {
   if (!tray) return;
   try {
     tray.displayBalloon({
-      title: 'HR 招聘管理系统',
-      content: '应用已最小化到系统托盘，双击托盘图标可重新打开。'
+      title: APP_NAME,
+      content: '应用已最小化到系统托盘（数据已保存），双击托盘图标可重新打开。'
     });
   } catch (err) {
     /* 部分系统不支持气泡提示，忽略 */

@@ -1,18 +1,22 @@
 'use strict';
 /**
  * 预加载脚本：通过 contextBridge 暴露受控 API，渲染进程不开 nodeIntegration。
+ * 与网页版的 renderer/core/bridge-web.js 保持同一套接口，两个外壳共用同一份界面代码。
  */
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 const api = {
   __env: 'electron',
 
-  // 数据
+  /* ---------- 数据（userData/data.json） ---------- */
   loadData: () => ipcRenderer.invoke('data:load'),
   saveData: (data) => ipcRenderer.invoke('data:save', data),
-  replaceData: (data) => ipcRenderer.invoke('data:replace', data),
+  getDataPath: () => ipcRenderer.invoke('data:path'),
+  exportData: () => ipcRenderer.invoke('data:export'),
+  importData: () => ipcRenderer.invoke('data:import'),
+  openDataFolder: () => ipcRenderer.invoke('data:openFolder'),
 
-  // 文件解析
+  /* ---------- 简历文件解析 ---------- */
   pickResumeFiles: () => ipcRenderer.invoke('resume:pick'),
   parsePaths: (paths) => ipcRenderer.invoke('resume:parsePaths', paths),
 
@@ -29,11 +33,10 @@ const api = {
     return ipcRenderer.invoke('resume:parsePaths', paths).then((list) => list.concat(failed));
   },
 
-  // 系统对话框读写
+  /* ---------- 其它文件读写 ---------- */
   saveTextFile: (opts) => ipcRenderer.invoke('file:saveText', opts),
-  openJsonFile: () => ipcRenderer.invoke('file:openJson'),
 
-  // 系统集成
+  /* ---------- 系统集成 ---------- */
   openPath: (p) => ipcRenderer.invoke('shell:openPath', p),
   showItemInFolder: (p) => ipcRenderer.invoke('shell:showItem', p),
   copyText: (text) => ipcRenderer.invoke('clipboard:write', text),
