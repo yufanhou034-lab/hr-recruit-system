@@ -13,6 +13,8 @@
   ];
   const ROUNDS = ['HR 面', '业务面', '技术面', '终面'];
   const CONCLUSIONS = ['强烈推荐', '推荐', '待定', '不推荐'];
+  /* 结论 → 单选按钮组的配色后缀（对应 .radio-chip.on-*） */
+  const RADIO_KIND = { 强烈推荐: 'strong', 推荐: 'rec', 待定: 'pend', 不推荐: 'rej' };
 
   const state = { appId: '' };
 
@@ -62,16 +64,20 @@
       CRITERIA.map(
         (c) =>
           '<div class="rating-row"><span class="rating-label">' + esc(c.label) + '</span>' +
-          '<input type="range" min="1" max="5" step="1" value="3" data-crit="' + c.key + '" />' +
+          '<span class="stars" data-crit="' + c.key + '">' +
+          [1, 2, 3, 4, 5]
+            .map((n) => '<button type="button" class="star' + (n <= 3 ? ' on' : '') + '" data-n="' + n + '" title="' + n + ' 分">★</button>')
+            .join('') +
+          '</span>' +
           '<span class="rating-val" data-val="' + c.key + '">3</span></div>'
       ).join('') +
       '<div class="toolbar" style="margin-top:6px"><span class="muted small">平均分</span><strong id="ivAvg">3.0</strong><span class="muted small">/ 5</span></div>' +
-      '<div class="field" style="margin-top:10px"><label>综合结论</label>' +
+      '<div class="field" style="margin-top:10px"><label>综合结论</label><div class="radio-group">' +
       CONCLUSIONS.map(
         (c, i) =>
-          '<label class="tag" style="cursor:pointer;margin-right:6px"><input type="radio" name="ivConclusion" value="' + esc(c) + '"' + (i === 1 ? ' checked' : '') + ' /> ' + esc(c) + '</label>'
+          '<label class="radio-chip" data-kind="' + RADIO_KIND[c] + '"><input type="radio" name="ivConclusion" value="' + esc(c) + '"' + (i === 1 ? ' checked' : '') + ' /> ' + esc(c) + '</label>'
       ).join('') +
-      '</div>' +
+      '</div></div>' +
       '<div class="field"><label>优点</label><textarea class="textarea" id="ivPros" style="min-height:80px" placeholder="如：沟通条理清晰，实习经历与岗位高度相关"></textarea></div>' +
       '<div class="field"><label>不足 / 风险点</label><textarea class="textarea" id="ivCons" style="min-height:80px" placeholder="如：对加班接受度待确认"></textarea></div>' +
       '<div class="field"><label>面试官姓名</label><input class="input" id="ivName" placeholder="如：王敏" /></div>' +
@@ -103,22 +109,47 @@
     });
 
     const form = el.querySelector('.grid-2 > .card');
-    const sliders = [...form.querySelectorAll('input[type="range"]')];
+    const starGroups = [...form.querySelectorAll('.stars')];
     const avgEl = form.querySelector('#ivAvg');
-    function updateAvg() {
-      const vals = sliders.map((s) => Number(s.value));
-      sliders.forEach((s) => {
-        form.querySelector('[data-val="' + s.getAttribute('data-crit') + '"]').textContent = s.value;
+
+    /* 星级评分：默认 3 分，点击第 N 颗星即 N 分 */
+    const scoreState = {};
+    CRITERIA.forEach((c) => (scoreState[c.key] = 3));
+
+    function paintStars() {
+      starGroups.forEach((g) => {
+        const key = g.getAttribute('data-crit');
+        const v = scoreState[key];
+        [...g.querySelectorAll('.star')].forEach((st) => {
+          st.classList.toggle('on', Number(st.getAttribute('data-n')) <= v);
+        });
+        form.querySelector('[data-val="' + key + '"]').textContent = String(v);
       });
-      const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
-      avgEl.textContent = avg.toFixed(1);
-      return avg;
+      avgEl.textContent = (CRITERIA.reduce((n, c) => n + scoreState[c.key], 0) / CRITERIA.length).toFixed(1);
     }
-    sliders.forEach((s) => s.addEventListener('input', updateAvg));
+    starGroups.forEach((g) => {
+      g.addEventListener('click', (e) => {
+        const st = e.target.closest('.star');
+        if (!st) return;
+        scoreState[g.getAttribute('data-crit')] = Number(st.getAttribute('data-n'));
+        paintStars();
+      });
+    });
+    paintStars();
+
+    /* 综合结论：彩色单选按钮组 */
+    const chips = [...form.querySelectorAll('.radio-chip')];
+    function paintChips() {
+      chips.forEach((ch) => {
+        ch.className = 'radio-chip';
+        if (ch.querySelector('input').checked) ch.classList.add('on-' + ch.getAttribute('data-kind'));
+      });
+    }
+    chips.forEach((ch) => ch.querySelector('input').addEventListener('change', paintChips));
+    paintChips();
 
     form.querySelector('#ivSave').addEventListener('click', async () => {
-      const scores = {};
-      sliders.forEach((s) => (scores[s.getAttribute('data-crit')] = Number(s.value)));
+      const scores = Object.assign({}, scoreState);
       const interviewer = form.querySelector('#ivName').value.trim();
       const conclusionEl = form.querySelector('input[name="ivConclusion"]:checked');
       const record = {

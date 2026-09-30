@@ -66,16 +66,22 @@
     const r = HR.data.resume(a.resumeId);
     const j = HR.data.job(a.jobId);
     const overdue = HR.data.isOverdue(a, 3);
+    const name = r ? r.name : '（简历已删除）';
+    const score = a.score ? a.score.composite : null;
+    const scoreCls = score === null ? '' : score >= 60 ? 'rec' : score >= 30 ? 'pend' : 'rej';
     return (
-      '<div class="kcard" draggable="true" data-id="' + a.id + '">' +
-      '<div class="kcard-title">' +
-      (overdue ? '<span class="dot-overdue" title="超过 3 天未跟进"></span>' : '') +
-      '<span>' + esc(r ? r.name : '（简历已删除）') + '</span>' +
+      '<div class="kcard' + (overdue ? ' overdue' : '') + '" draggable="true" data-id="' + a.id + '">' +
+      '<div class="kcard-top">' +
+      '<span class="kavatar">' + esc(name.slice(0, 1)) + '</span>' +
+      '<span class="kcard-title">' + esc(name) +
+      (overdue ? ' <span class="dot-overdue" title="超过 3 天未跟进"></span>' : '') + '</span>' +
       '</div>' +
-      '<div class="kcard-sub">' + esc(j ? j.name : '未知岗位') + ' · ' + esc(r ? r.school || '—' : '—') + '</div>' +
+      '<div class="kcard-sub">' + esc(j ? j.name : '未知岗位') + '</div>' +
       '<div class="kcard-foot">' +
-      '<span class="kcard-score">' + (a.score ? '综合分 ' + a.score.composite : '未打分') + '</span>' +
-      '<span' + (overdue ? ' class="text-red"' : '') + '>跟进 ' + util.fromNow(a.lastFollowUpAt) + '</span>' +
+      (score === null
+        ? '<span class="muted">未打分</span>'
+        : '<span class="kcard-score badge ' + scoreCls + '">综合分 ' + score + '</span>') +
+      '<span' + (overdue ? ' class="text-red"' : '') + '>' + util.fromNow(a.lastFollowUpAt) + '</span>' +
       '</div></div>'
     );
   }

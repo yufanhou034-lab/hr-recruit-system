@@ -27,10 +27,10 @@
       '<div class="card"><div class="card-head"><h3>💾 数据备份</h3></div>' +
       '<div class="field"><label>导出全部数据</label>' +
       '<div class="muted small" style="margin-bottom:6px">把当前 data.json 完整复制一份到你选择的位置' + (isWeb ? '（直接下载）。' : '（弹出系统保存对话框）。') + '换电脑时带过去即可。</div>' +
-      '<button class="btn" id="stExport">导出数据</button></div>' +
+      '<button class="btn" id="stExport">📤 导出数据</button></div>' +
       '<div class="field"><label>导入数据</label>' +
       '<div class="muted small" style="margin-bottom:6px">选择一个之前导出的 JSON 文件，<b>覆盖</b>当前全部数据。</div>' +
-      '<button class="btn ghost" id="stImport">导入数据</button></div>' +
+      '<button class="btn ghost" id="stImport">📥 导入数据</button></div>' +
       '</div>' +
 
       '<div class="card"><div class="card-head"><h3>📊 当前数据量</h3></div>' +

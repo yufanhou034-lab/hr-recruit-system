@@ -39,32 +39,9 @@
       '<div class="muted small">「新岗位匹配」会按关键词相似度（字符 2-gram 余弦）从人才库里挑出与该岗位 JD 最匹配的 5 个人。</div>' +
       '</div>' +
       (state.matches ? matchPanelHtml() : '') +
-      '<div class="table-wrap">' +
       (rows.length
-        ? '<table><thead><tr>' +
-          '<th>姓名</th><th>电话</th><th>学校</th><th>学历 / 专业</th><th>来源</th><th>标签</th><th>入库时间</th><th style="width:180px">操作</th>' +
-          '</tr></thead><tbody>' +
-          rows
-            .map(
-              (r) =>
-                '<tr>' +
-                '<td class="nowrap"><strong>' + esc(r.name) + '</strong></td>' +
-                '<td class="nowrap mono">' + esc(util.maskPhone(r.phone)) + '</td>' +
-                '<td>' + esc(r.school || '—') + '</td>' +
-                '<td>' + esc((r.degree || '—') + ' · ' + (r.major || '—')) + '</td>' +
-                '<td class="nowrap">' + esc(r.source || '其他') + '</td>' +
-                '<td>' + ((r.tags || []).length ? r.tags.map((t) => '<span class="tag blue">' + esc(t) + '</span>').join('') : '<span class="muted">—</span>') + '</td>' +
-                '<td class="nowrap">' + util.fmtDate(r.createdAt) + '</td>' +
-                '<td class="nowrap">' +
-                '<button class="btn-link" data-act="pick" data-id="' + r.id + '">捞回简历池</button>' +
-                '<button class="btn-link" data-act="view" data-id="' + r.id + '">查看</button>' +
-                '<button class="btn-link danger" data-act="del" data-id="' + r.id + '">永久删除</button>' +
-                '</td></tr>'
-            )
-            .join('') +
-          '</tbody></table>'
-        : HR.ui.empty('⭐', '人才库里还没有候选人，可在简历池把候选人「移入人才库」')) +
-      '</div>';
+        ? '<div class="job-grid">' + rows.map(talentCardHtml).join('') + '</div>'
+        : '<div class="card">' + HR.ui.empty('⭐', '人才库里还没有候选人，可在简历池把候选人「移入人才库」') + '</div>');
 
     el.querySelector('#tpTag').addEventListener('change', (e) => {
       state.tag = e.target.value;
@@ -150,6 +127,32 @@
     state.matchJobId = jobId;
     state.matches = scored;
     HR.refresh();
+  }
+
+  /* 人才库候选人卡片（含标签云） */
+  function talentCardHtml(r) {
+    const tags = (r.tags || []).length
+      ? r.tags.map((t) => '<span class="tag blue">' + esc(t) + '</span>').join('')
+      : '<span class="tag gray">暂无标签</span>';
+    return (
+      '<div class="job-card">' +
+      '<div class="kcard-top">' +
+      '<span class="kavatar">' + esc(String(r.name || '?').slice(0, 1)) + '</span>' +
+      '<div><div class="cell-name">' + esc(r.name) + '</div>' +
+      '<div class="cell-sub">' + esc(r.school || '学校未识别') + ' · ' + esc(r.degree || '—') + ' · ' + esc(r.major || '—') + '</div></div>' +
+      '</div>' +
+      '<div class="job-meta">' +
+      '<span class="mono">📱 ' + esc(util.maskPhone(r.phone)) + '</span>' +
+      '<span>📡 ' + esc(r.source || '其他') + '</span>' +
+      '<span>🕒 ' + util.fmtDate(r.createdAt) + '</span>' +
+      '</div>' +
+      '<div>' + tags + '</div>' +
+      '<div class="job-actions">' +
+      '<button class="btn small" data-act="pick" data-id="' + r.id + '">捞回简历池</button>' +
+      '<button class="btn small ghost" data-act="view" data-id="' + r.id + '">查看</button>' +
+      '<button class="btn small ghost" data-act="del" data-id="' + r.id + '">永久删除</button>' +
+      '</div></div>'
+    );
   }
 
   HR.register({ key: 'talent', label: '人才库', icon: '⭐', render: render });

@@ -34,7 +34,7 @@
     el.innerHTML =
       '<div class="card">' +
       '<div class="toolbar">' +
-      '<input class="input grow" id="poolSearch" placeholder="搜索姓名 / 学校 / 电话 / 邮箱 / 专业" value="' + esc(filters.keyword) + '" />' +
+      '<input class="input input-search grow" id="poolSearch" placeholder="搜索姓名 / 学校 / 电话 / 邮箱 / 专业" value="' + esc(filters.keyword) + '" />' +
       '<select class="select" id="poolSource" style="width:130px">' +
       '<option value="">全部来源</option>' +
       HR.SOURCES.map((s) => '<option value="' + esc(s) + '"' + (filters.source === s ? ' selected' : '') + '>' + esc(s) + '</option>').join('') +
@@ -58,7 +58,7 @@
       '<div class="table-wrap">' +
       (rows.length
         ? '<table><thead><tr>' +
-          '<th>姓名</th><th>电话</th><th>学校</th><th>学历</th><th>专业</th><th>来源</th><th>标签</th><th>入库时间</th><th style="width:230px">操作</th>' +
+          '<th>姓名 / 学校</th><th>电话</th><th>学历</th><th>专业</th><th>来源</th><th>标签</th><th>入库时间</th><th style="width:230px">操作</th>' +
           '</tr></thead><tbody>' +
           rows.map(rowHtml).join('') +
           '</tbody></table>'
@@ -107,9 +107,9 @@
   function rowHtml(r) {
     return (
       '<tr>' +
-      '<td class="nowrap"><strong>' + esc(r.name) + '</strong>' + (r.inTalentPool ? ' <span class="tag purple">人才库</span>' : '') + '</td>' +
+      '<td><div class="cell-name">' + esc(r.name) + (r.inTalentPool ? ' <span class="tag purple">人才库</span>' : '') + '</div>' +
+      '<div class="cell-sub">' + esc(r.school || '学校未识别') + '</div></td>' +
       '<td class="nowrap mono">' + esc(util.maskPhone(r.phone)) + '</td>' +
-      '<td>' + esc(r.school || '—') + '</td>' +
       '<td class="nowrap">' + esc(r.degree || '—') + '</td>' +
       '<td>' + esc(r.major || '—') + '</td>' +
       '<td class="nowrap">' + esc(r.source || '其他') + '</td>' +

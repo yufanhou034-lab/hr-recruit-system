@@ -102,13 +102,14 @@
   function cardHtml(job) {
     const apps = HR.data.appsOfJob(job.id);
     return (
-      '<div class="job-card' + (job.archived ? ' archived' : '') + '">' +
-      '<h4>' + esc(job.name) + (job.archived ? ' <span class="tag">已归档</span>' : ' <span class="tag green">在招</span>') + '</h4>' +
+      '<div class="job-card' + (job.archived ? ' archived' : ' active') + '">' +
+      '<h4>' + esc(job.name) + (job.archived ? ' <span class="tag gray">已归档</span>' : ' <span class="tag green">在招</span>') + '</h4>' +
       '<div class="job-meta">' +
       '<span>🏷️ ' + esc(job.department || '未填部门') + '</span>' +
       '<span>📡 ' + esc(job.channel || '—') + '</span>' +
       '<span>📐 规则 ' + ruleCount(job) + ' 条</span>' +
       '<span>👥 候选人 ' + apps.length + '</span>' +
+      '<span>🕒 ' + util.fmtDate(job.createdAt) + '</span>' +
       '</div>' +
       '<div class="job-meta"><span title="JD 正文">' + esc(util.truncate((job.jd || '').replace(/\s+/g, ' '), 60) || '（未填写 JD）') + '</span></div>' +
       '<div class="job-actions">' +
