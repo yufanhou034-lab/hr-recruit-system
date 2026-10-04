@@ -19,6 +19,9 @@
       ['jobs', 'candidates', 'applications'].forEach((k) => {
         if (!Array.isArray(raw[k])) raw[k] = [];
       });
+      // 设置页维护的自定义同义词：每行一组
+      if (!Array.isArray(raw.synonyms)) raw.synonyms = [];
+      raw.synonyms = raw.synonyms.filter((s) => typeof s === 'string' && s.trim());
       raw.jobs.forEach((j) => {
         j.rules = j.rules || {};
         ['must', 'plus', 'exclude'].forEach((k) => {

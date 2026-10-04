@@ -47,8 +47,33 @@
     ['实习', '实习经历', '实习生']
   ];
 
+  /* ---------- 用户自定义同义词（设置页维护，存在 data.json 的 synonyms 数组） ----------
+     每行一组，用 / 或 、 分隔，只有两个词以上才算一组（单个词谈不上同义）。
+     与内置词典是叠加关系而非替换：内置的始终生效，自定义的在此基础上追加。
+     解析结果按原始内容缓存，避免每条规则、每份简历都重新切分。 */
+  let customCache = { key: null, groups: [] };
+  function customGroups() {
+    const lines = (HR.data && HR.data.raw && HR.data.raw.synonyms) || [];
+    const key = lines.join('\n');
+    if (customCache.key === key) return customCache.groups;
+    const groups = [];
+    lines.forEach((line) => {
+      const terms = String(line || '')
+        .split(/[／/、]/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (terms.length >= 2) groups.push(terms);
+    });
+    customCache = { key: key, groups: groups };
+    return groups;
+  }
+
+  function allGroups() {
+    return SYNONYM_GROUPS.concat(customGroups());
+  }
+
   /**
-   * 把一条标准展开成待匹配的词表：内联同义词（原样）+ 词典里与它等价的说法。
+   * 把一条标准展开成待匹配的词表：内联同义词（原样）+ 内置词典 + 用户自定义词典。
    * 命中词典词时标注 via='同义词'，方便在界面上区分「字面命中」和「词典命中」。
    * @returns {Array<{t:string, via:string}>}
    */
@@ -64,7 +89,7 @@
     }
     base.forEach((t) => push(t, ''));
     base.forEach((t) => {
-      SYNONYM_GROUPS.forEach((group) => {
+      allGroups().forEach((group) => {
         // 只有「实质等价」才扩展：完全相等，或是包含关系且长度相近。
         // 长度比例门槛用来挡住「每周可实习4天以上」被「实习」这种短词蒙中的情况 ——
         // 那会把连续命中的严格要求彻底废掉。
@@ -406,6 +431,7 @@
 
   HR.scoring = {
     ALGO_VERSION,
+    SYNONYM_GROUPS,
     keywords,
     synonyms,
     expandTerms,

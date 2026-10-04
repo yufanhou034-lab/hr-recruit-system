@@ -25,12 +25,12 @@ for (let i = 1; i <= 9; i++) {
 }
 CORPUS.push(mkResume('c10', '负责新媒体运营，已通过 CET-6，熟练使用 Office 办公软件。'));
 
-function loadScoring(candidates) {
+function loadScoring(candidates, synonyms) {
   const sandbox = {
     window: {
       HR: {
         util: { now: () => NOW },
-        data: { raw: { candidates: candidates || [] } }
+        data: { raw: { candidates: candidates || [], synonyms: synonyms || [] } }
       }
     }
   };
@@ -228,8 +228,38 @@ const RESUME_IRRELEVANT = '本人性格开朗，喜欢打篮球，担任过宿�
   ok('达到阈值判为推荐', r.composite >= 60 ? r.verdict === '推荐' : true, r.composite + ' → ' + r.verdict);
 }
 
-/* =============== 4. 边界情况 =============== */
-section('4. 边界情况');
+/* =============== 5. 用户自定义同义词（设置页维护） =============== */
+section('5. 用户自定义同义词');
+
+{
+  // 第二行只有单个词，按规则应被忽略
+  const custom = loadScoring(CORPUS, ['注册会计师/CPA', '只有单个词']);
+
+  const hit = custom.matchItem('注册会计师', '本人已通过 CPA 考试，具备五年审计经验。');
+  ok('自定义同义词生效：规则「注册会计师」命中简历里的「CPA」', hit.hit === true && hit.via === '同义词',
+    JSON.stringify(hit));
+
+  ok('自定义词典是叠加而非替换：内置的「硕士→研究生」仍然生效',
+    custom.matchItem('硕士', '本人研究生学历。').hit === true);
+
+  ok('内置的「英语六级→CET-6」在带自定义词典时也仍然生效',
+    custom.matchItem('英语六级', '英语水平：CET-6。').hit === true);
+
+  const single = custom.expandTerms('只有单个词');
+  ok('不足两个词的行被忽略（不会凭空扩展）', single.length === 1 && single[0].via === '',
+    JSON.stringify(single));
+
+  const noCustom = loadScoring(CORPUS, []);
+  ok('未配置自定义词典时，自定义词不生效',
+    noCustom.matchItem('注册会计师', '本人已通过 CPA 考试。').hit === false);
+
+  const r = custom.screenResume('本人已通过 CPA 考试，具备五年审计经验。',
+    { must: [{ text: '注册会计师', veto: true }], plus: [], exclude: [] }, '');
+  ok('自定义同义词参与真实打分（必备项命中 +20）', r.ruleScore === 20 && r.hitMust.length === 1);
+}
+
+/* =============== 6. 边界情况 =============== */
+section('6. 边界情况');
 
 {
   const empty = loadScoring([]);

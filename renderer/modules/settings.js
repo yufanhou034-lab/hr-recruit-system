@@ -46,6 +46,18 @@
 
       storageCard +
 
+      '<div class="card"><div class="card-head"><h3>🔤 同义词词典</h3></div>' +
+      '<div class="muted small" style="margin-bottom:6px">每行一组，用 <b>/</b> 或 <b>、</b> 分隔（至少两个词才算一组）。' +
+      '初筛打分时，规则里出现某个词，整组等价说法都会纳入匹配 —— 于是 HR 写「英语六级」、简历里写「CET-6」也能命中。</div>' +
+      '<div class="field"><textarea class="textarea" id="stSynonyms" style="min-height:120px" ' +
+      'placeholder="每行一组，例如：&#10;注册会计师/CPA&#10;注册税务师/CTA">' +
+      util.esc((raw.synonyms || []).join('\n')) + '</textarea></div>' +
+      '<button class="btn" id="stSynSave">保存</button>' +
+      '<button class="btn ghost" id="stSynReset" style="margin-left:8px">清空自定义</button>' +
+      '<div class="muted small" style="margin-top:12px"><b>内置词典</b>（始终生效，下面这些无需重复填写）：' +
+      HR.scoring.SYNONYM_GROUPS.map((g) => '<div style="margin-top:2px">· ' + util.esc(g.join(' / ')) + '</div>').join('') +
+      '</div></div>' +
+
       '<div class="card"><div class="card-head"><h3>⚠️ 危险操作</h3></div>' +
       '<div class="muted small" style="margin-bottom:8px">清空后所有岗位、简历、投递与面试记录都会被删除，且无法恢复。建议先导出备份。</div>' +
       '<button class="btn danger" id="stClear">清空全部数据</button>' +
@@ -66,6 +78,28 @@
     el.querySelector('#stExport').addEventListener('click', exportDataFile);
     el.querySelector('#stImport').addEventListener('click', importDataFile);
     el.querySelector('#stClear').addEventListener('click', clearAll);
+
+    /* 同义词词典：保存到 data.json，与内置词典叠加生效 */
+    el.querySelector('#stSynSave').addEventListener('click', () => {
+      const lines = el
+        .querySelector('#stSynonyms')
+        .value.split('\n')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const bad = lines.filter((l) => l.split(/[／/、]/).map((s) => s.trim()).filter(Boolean).length < 2);
+      HR.data.raw.synonyms = lines;
+      HR.data.normalize();
+      HR.data.persistNow();
+      HR.ui.toast(bad.length ? '已保存 ' + lines.length + ' 组，其中 ' + bad.length + ' 行不足两个词、不会生效' : '已保存同义词 ' + lines.length + ' 组');
+      HR.refresh();
+    });
+    el.querySelector('#stSynReset').addEventListener('click', () => {
+      HR.data.raw.synonyms = [];
+      HR.data.normalize();
+      HR.data.persistNow();
+      HR.ui.toast('已清空自定义同义词，内置词典仍然生效');
+      HR.refresh();
+    });
 
     const openDirBtn = el.querySelector('#stOpenDir');
     if (openDirBtn) {
