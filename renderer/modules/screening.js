@@ -6,6 +6,11 @@
 
   const state = { jobId: '', expanded: '' };
 
+  /* 旧算法版本留下的分数视为「待重算」：匹配口径变了，旧分数与新分数不可比 */
+  function isStaleScore(a) {
+    return !!a.score && a.score.algo !== HR.scoring.ALGO_VERSION;
+  }
+
   function render(el) {
     const jobs = HR.data.jobs(false);
     if (!jobs.length) {
@@ -17,8 +22,8 @@
     const apps = HR.data.appsOfJob(job.id);
     const poolResumes = HR.data.raw.candidates.filter((r) => !r.inTalentPool);
     const pendingAdd = poolResumes.filter((r) => !HR.data.appOf(r.id, job.id)).length;
-    const scored = apps.filter((a) => a.score);
-    const unscored = apps.filter((a) => !a.score);
+    const scored = apps.filter((a) => a.score && !isStaleScore(a));
+    const unscored = apps.filter((a) => !a.score || isStaleScore(a));
 
     const sorted = apps.slice().sort((a, b) => {
       const sa = a.score ? a.score.composite : -Infinity;
@@ -156,18 +161,48 @@
     const line = (label, arr, render) =>
       '<div style="margin-bottom:8px"><div class="muted small">' + label + '（' + arr.length + '）</div>' +
       (arr.length ? arr.map(render).join('') : '<span class="muted small">无</span>') + '</div>';
+
+    /* 逐条标出得分贡献，让 HR 一眼看懂「这个分数是怎么算出来的」 */
+    const row = (x, pts, cls) =>
+      '<div>' +
+      '<span class="mono' + (pts < 0 ? ' text-red' : '') + '" style="display:inline-block;width:32px">' +
+      (pts > 0 ? '+' : '') + (pts === 0 ? '⛔' : pts) + '</span>' +
+      '<span class="tag ' + cls + '">' + esc(x.text) + '</span>' +
+      (x.veto ? ' <span class="tag red">一票否决</span>' : '') +
+      (x.why ? ' <span class="muted small">命中「' + esc(x.why) + '」</span>' : '') +
+      (x.via === '同义词' ? ' <span class="tag purple">同义词</span>' : '') +
+      '</div>';
+
+    /* 缺失项额外列出已尝试过的等价说法，方便 HR 判断是不是自己的措辞太窄 */
+    const missRow = (m) => {
+      const tried = HR.scoring
+        .expandTerms(m.text)
+        .filter((t) => t.via)
+        .map((t) => t.t);
+      return (
+        row(m, -15, m.veto ? 'red' : 'yellow') +
+        (tried.length ? '<div class="muted small" style="margin:-2px 0 4px 32px">已尝试同义词：' + esc(tried.join('、')) + '</div>' : '')
+      );
+    };
+
+    const jdDetail = s.jdTotal
+      ? '覆盖 JD 要点 ' + s.jdCovered + ' / ' + s.jdTotal
+      : s.algo === HR.scoring.ALGO_VERSION
+        ? 'JD 未填写，不计入'
+        : '旧版本分数，建议重新打分';
+
     return (
       '<div class="kv" style="margin-bottom:10px">' +
-      '<dt>规则分</dt><dd class="mono">' + s.ruleScore + '</dd>' +
-      '<dt>JD 匹配度</dt><dd class="mono">' + s.jdSim + '% → ×0.3 = ' + s.jdScore + '</dd>' +
-      '<dt>综合分</dt><dd class="mono"><strong>' + s.composite + '</strong></dd>' +
+      '<dt>规则分</dt><dd class="mono">' + s.ruleScore + ' <span class="muted small">必备 / 加分逐条累加</span></dd>' +
+      '<dt>JD 匹配度</dt><dd class="mono">' + s.jdSim + '% <span class="muted small">（' + jdDetail + '）</span> ×0.3 = ' + s.jdScore + '</dd>' +
+      '<dt>综合分</dt><dd class="mono"><strong>' + s.composite + '</strong> <span class="muted small">= ' + s.ruleScore + ' + ' + s.jdScore + '</span></dd>' +
       '<dt>判定</dt><dd><span class="badge ' + HR.scoring.verdictClass(s.verdict) + '">' + esc(s.verdict) + '</span>' +
       (s.eliminated ? ' <span class="tag red">' + (s.excludeHits.length ? '命中排除项' : '一票否决未命中') + '</span>' : '') + '</dd>' +
       '</div>' +
-      line('命中必备项', s.hitMust, (h) => '<div><span class="tag green">' + esc(h.text) + '</span> <span class="muted small">命中「' + esc(h.why) + '」</span></div>') +
-      line('缺失必备项', s.missMust, (m) => '<div><span class="tag ' + (m.veto ? 'red' : 'yellow') + '">' + esc(m.text) + (m.veto ? '（一票否决）' : '') + '</span></div>') +
-      line('命中加分项', s.hitPlus, (p) => '<div><span class="tag blue">' + esc(p.text) + '</span> <span class="muted small">命中「' + esc(p.why) + '」</span></div>') +
-      line('命中排除项', s.excludeHits, (x) => '<div><span class="tag red">' + esc(x.text) + '</span> <span class="muted small">命中「' + esc(x.why) + '」</span></div>')
+      line('必备项命中（每条 +20）', s.hitMust, (h) => row(h, 20, 'green')) +
+      line('必备项缺失（每条 −15）', s.missMust, missRow) +
+      line('加分项命中（每条 +10）', s.hitPlus, (p) => row(p, 10, 'blue')) +
+      line('排除项命中（直接淘汰）', s.excludeHits, (x) => row(x, 0, 'red'))
     );
   }
 

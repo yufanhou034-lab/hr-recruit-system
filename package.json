@@ -10,7 +10,8 @@
     "dev": "electron .",
     "start": "electron .",
     "pack": "electron-builder --win dir --publish never",
-    "dist": "electron-builder --win nsis --publish never"
+    "dist": "electron-builder --win nsis --publish never",
+    "test": "node test/scoring.test.js"
   },
   "dependencies": {
     "electron-store": "^8.2.0",

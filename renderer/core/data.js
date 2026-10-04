@@ -35,6 +35,12 @@
         if (!Array.isArray(r.tags)) r.tags = [];
         if (typeof r.inTalentPool !== 'boolean') r.inTalentPool = !!r.inTalentPool;
         if (!r.createdAt) r.createdAt = util.now();
+        // 简历正文统一为 text：导入解析、打分调用、详情展示、演示数据都用这个字段名。
+        // 中途曾短暂用过 resumeText，这里做一次兼容迁移 —— 两种字段名并存会导致
+        // 「初筛展开看不到原文」「人才库匹配恒为空」「IDF 语料读不到正文」等问题。
+        if (!r.text && r.resumeText) r.text = r.resumeText;
+        if (typeof r.text !== 'string') r.text = '';
+        delete r.resumeText;
       });
       raw.applications.forEach((a) => {
         if (!Array.isArray(a.followUps)) a.followUps = [];
