@@ -55,13 +55,11 @@
       '</div>' +
       '<div class="muted small">共 ' + rows.length + ' 份（可把 .docx / .pdf / .txt / 图片直接拖进窗口自动入库）</div>' +
       '</div>' +
-      '<div class="table-wrap">' +
+      '<div class="table-wrap' + (rows.length ? ' vt-wrap' : '') + '">' +
       (rows.length
         ? '<table><thead><tr>' +
           '<th>姓名 / 学校</th><th>电话</th><th>学历</th><th>专业</th><th>来源</th><th>标签</th><th>入库时间</th><th style="width:230px">操作</th>' +
-          '</tr></thead><tbody>' +
-          rows.map(rowHtml).join('') +
-          '</tbody></table>'
+          '</tr></thead><tbody id="poolBody"></tbody></table>'
         : HR.ui.empty('📄', '简历池还是空的，点右上角导入文件或直接拖文件进窗口')) +
       '</div>';
 
@@ -102,6 +100,17 @@
         else if (act === 'talent') toggleTalent(id);
         else if (act === 'del') removeResume(id);
       });
+
+    /* 虚拟滚动：只渲染可视区内的行（上千份简历时避免一次性创建上千个 DOM 行） */
+    if (rows.length) {
+      HR.ui.virtualTable({
+        scroller: el.querySelector('.vt-wrap'),
+        tbody: el.querySelector('#poolBody'),
+        total: rows.length,
+        rowHtml: (i) => rowHtml(rows[i]),
+        colSpan: 8
+      });
+    }
   }
 
   function rowHtml(r) {

@@ -293,6 +293,15 @@ tbody tr:last-child td { border-bottom: none; }
 td.nowrap { white-space: nowrap; }
 .table-empty { padding: 28px; text-align: center; color: var(--muted); }
 
+/* 虚拟滚动表格：容器自己纵向滚动，表头 sticky 吸顶，只渲染可视区内的行 */
+.vt-wrap {
+  max-height: calc(100vh - 300px);
+  min-height: 260px;
+  overflow: auto;
+}
+.vt-wrap thead th { position: sticky; top: 0; z-index: 2; }
+.vt-wrap tbody tr.vt-pad td { padding: 0; border: none; }
+
 /* 姓名 + 学校双行单元格 */
 .cell-name { font-weight: 600; color: var(--text); }
 .cell-sub { font-size: 11px; color: var(--muted-2); margin-top: 1px; }

@@ -159,22 +159,40 @@
     return matchItem(item, resume).hit;
   }
 
+  // JD 特征缓存：同一个岗位的 JD 会对成百上千份简历反复求相似度，
+  // 而 freq(jd) 及其模长与简历无关，缓存后可省掉这部分重复构建。
+  // 按 JD 原文做 key，JD 一改字符串就变，天然失效；上限 20 条防止内存膨胀。
+  const jdGramCache = new Map();
+  function jdGrams(jd) {
+    const key = String(jd || '');
+    let hit = jdGramCache.get(key);
+    if (!hit) {
+      const m = freq(key);
+      let norm = 0;
+      m.forEach((v) => {
+        norm += v * v;
+      });
+      hit = { m: m, norm: norm };
+      if (jdGramCache.size >= 20) jdGramCache.delete(jdGramCache.keys().next().value);
+      jdGramCache.set(key, hit);
+    }
+    return hit;
+  }
+
   // 简历与 JD 的字符 2-gram 余弦相似度，0~1
   function jdSimilarity(jd, resume) {
-    const a = freq(jd);
+    const A = jdGrams(jd);
     const b = freq(resume);
     let dot = 0;
-    let na = 0;
     let nb = 0;
-    a.forEach((v, k) => {
-      na += v * v;
+    A.m.forEach((v, k) => {
       if (b.has(k)) dot += v * b.get(k);
     });
     b.forEach((v) => {
       nb += v * v;
     });
-    if (na === 0 || nb === 0) return 0;
-    return dot / Math.sqrt(na * nb);
+    if (A.norm === 0 || nb === 0) return 0;
+    return dot / Math.sqrt(A.norm * nb);
   }
 
   function toItems(list) {

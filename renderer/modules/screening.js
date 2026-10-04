@@ -48,12 +48,10 @@
       '<div class="toolbar"><span class="muted small">JD 正文：' + (job.jd ? esc(util.truncate(job.jd.replace(/\s+/g, ' '), 70)) : '<span class="text-red">未填写，匹配度将按 0 计算</span>') + '</span></div>' +
       '</div>' +
       (sorted.length
-        ? '<div class="table-wrap"><table><thead><tr>' +
+        ? '<div class="table-wrap vt-wrap"><table><thead><tr>' +
           '<th style="width:52px">排名</th><th>姓名</th><th>学校</th><th class="mono">规则分</th>' +
           '<th class="mono">JD 匹配度</th><th class="mono">综合分</th><th>判定</th><th>命中项</th><th>缺失项</th><th style="width:80px">操作</th>' +
-          '</tr></thead><tbody>' +
-          sorted.map((a, i) => rowHtml(a, a.score ? i + 1 : '—')).join('') +
-          '</tbody></table></div>'
+          '</tr></thead><tbody id="scBody"></tbody></table></div>'
         : HR.ui.empty('🎯', '该岗位还没有候选人，点「从简历池加入待初筛」把简历池的人加进来'));
 
     el.querySelector('#scJob').addEventListener('change', (e) => {
@@ -68,25 +66,43 @@
     el.querySelector('#scReject').addEventListener('click', () => batchToTalent(job.id));
     el.querySelector('#scExport').addEventListener('click', () => exportCsv(job));
 
-    el.querySelector('tbody').addEventListener('click', (e) => {
-      const btn = e.target.closest('button[data-act]');
-      const tr = e.target.closest('tr[data-app]');
-      if (btn) {
-        const id = btn.getAttribute('data-id');
-        if (btn.getAttribute('data-act') === 'detail') {
-          const a = HR.data.application(id);
-          const r = a && HR.data.resume(a.resumeId);
-          if (r) HR.pool.openDetail(r.id);
+    const body = el.querySelector('#scBody');
+    if (body) {
+      if (state.expanded) {
+        /* 有展开行时行高不再是固定 40px，虚拟滚动会错位，这一种情况回退全量渲染 */
+        body.innerHTML = sorted.map((a, i) => rowHtml(a, a.score ? i + 1 : '—')).join('');
+      } else {
+        /* 常规浏览：只渲染可视区内的行 */
+        HR.ui.virtualTable({
+          scroller: el.querySelector('.vt-wrap'),
+          tbody: body,
+          total: sorted.length,
+          rowHtml: (i) => rowHtml(sorted[i], sorted[i].score ? i + 1 : '—'),
+          colSpan: 10
+        });
+      }
+    }
+
+    body &&
+      body.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-act]');
+        const tr = e.target.closest('tr[data-app]');
+        if (btn) {
+          const id = btn.getAttribute('data-id');
+          if (btn.getAttribute('data-act') === 'detail') {
+            const a = HR.data.application(id);
+            const r = a && HR.data.resume(a.resumeId);
+            if (r) HR.pool.openDetail(r.id);
+          }
+          e.stopPropagation();
+          return;
         }
-        e.stopPropagation();
-        return;
-      }
-      if (tr) {
-        const id = tr.getAttribute('data-app');
-        state.expanded = state.expanded === id ? '' : id;
-        HR.refresh();
-      }
-    });
+        if (tr) {
+          const id = tr.getAttribute('data-app');
+          state.expanded = state.expanded === id ? '' : id;
+          HR.refresh();
+        }
+      });
   }
 
   function rowHtml(a, rank) {

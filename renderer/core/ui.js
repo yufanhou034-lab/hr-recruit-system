@@ -136,5 +136,94 @@
     if (el) el.textContent = text;
   }
 
-  HR.ui = { toast, modal, confirm, choose, empty, setStatus };
+  /**
+   * 表格虚拟滚动：只渲染可视区内的行，用上下两个占位行撑出总高度。
+   * 上千份简历时把 DOM 行数从上千降到几十行，是简历池 / 初筛页最主要的性能手段。
+   * 行高优先实测（避免与 CSS 不一致导致滚动跳动）。
+   *
+   * @param {Object} opt
+   *   scroller  纵向滚动容器（CSS 需给固定高度 + overflow:auto）
+   *   tbody     表格的 tbody
+   *   total     总行数
+   *   rowHtml   (index) => '<tr>...</tr>'
+   *   colSpan   占位行跨越的列数
+   *   headH     表头高度（sticky 表头占位，默认 38）
+   *   overscan  上下各多渲染几行，避免快速滚动露白（默认 6）
+   * @returns {Function} update 重新计算并渲染（筛选条件变化后调用）
+   */
+  function virtualTable(opt) {
+    const scroller = opt.scroller;
+    const tbody = opt.tbody;
+    const total = opt.total || 0;
+    const rowHtml = opt.rowHtml;
+    const colSpan = opt.colSpan || 20;
+    const headH = opt.headH == null ? 38 : opt.headH;
+    const overscan = opt.overscan == null ? 6 : opt.overscan;
+    const PAD = 'padding:0;border:none';
+
+    let rowH = opt.rowHeight || 40;
+    let measured = false;
+    let lastStart = -1;
+    let lastEnd = -1;
+    let raf = 0;
+
+    function paint(force) {
+      if (!tbody.isConnected || !scroller.isConnected) return;
+      const viewH = scroller.clientHeight || 600;
+      const bodyTop = Math.max(0, (scroller.scrollTop || 0) - headH);
+
+      let start = Math.floor(bodyTop / rowH) - overscan;
+      if (start < 0) start = 0;
+      let end = Math.ceil((bodyTop + viewH) / rowH) + overscan;
+      if (end > total) end = total;
+      if (end <= start) end = Math.min(total, start + 1);
+
+      if (!force && start === lastStart && end === lastEnd) return;
+      lastStart = start;
+      lastEnd = end;
+
+      const padTop = start * rowH;
+      const padBottom = Math.max(0, (total - end) * rowH);
+      let html = '';
+      if (padTop > 0) {
+        html += '<tr class="vt-pad" style="height:' + padTop + 'px"><td colspan="' + colSpan + '" style="' + PAD + '"></td></tr>';
+      }
+      for (let i = start; i < end; i++) html += rowHtml(i);
+      if (padBottom > 0) {
+        html += '<tr class="vt-pad" style="height:' + padBottom + 'px"><td colspan="' + colSpan + '" style="' + PAD + '"></td></tr>';
+      }
+      tbody.innerHTML = html;
+
+      if (!measured) {
+        const row = tbody.querySelector('tr:not(.vt-pad)');
+        const h = row && row.offsetHeight;
+        if (h) {
+          measured = true;
+          if (Math.abs(h - rowH) > 0.5) {
+            rowH = h;
+            paint(true);
+          }
+        }
+      }
+    }
+
+    function onScroll() {
+      if (raf) return;
+      raf = requestAnimationFrame(function () {
+        raf = 0;
+        paint(false);
+      });
+    }
+
+    scroller.addEventListener('scroll', onScroll, { passive: true });
+    paint(true);
+
+    return function update() {
+      lastStart = -1;
+      lastEnd = -1;
+      paint(true);
+    };
+  }
+
+  HR.ui = { toast, modal, confirm, choose, empty, setStatus, virtualTable };
 })();

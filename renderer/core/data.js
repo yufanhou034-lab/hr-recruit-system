@@ -45,15 +45,33 @@
       });
     },
 
+    /**
+     * 请求保存。大数据量下全量序列化不便宜，所以这里做防抖合并：
+     * 连续操作（批量打标签、拖拽换列等）只落盘一次，而不是每次点击都写一遍整个数据库。
+     * 需要立刻落盘的场景请用 persistNow()。
+     */
     persist() {
-      return window.api.saveData(this.raw);
+      if (this._saveTimer) clearTimeout(this._saveTimer);
+      this._saveTimer = setTimeout(() => {
+        this._saveTimer = null;
+        this._writeNow();
+      }, 400);
+      return Promise.resolve();
     },
 
-    /** 失焦 / 切 tab 时调用，静默保存 */
-    persistNow() {
-      this.persist().catch(() => {
+    _writeNow() {
+      return window.api.saveData(this.raw).catch(() => {
         HR.ui.toast('数据保存失败，请检查磁盘权限', 'error');
       });
+    },
+
+    /** 立即落盘并取消待写任务：失焦 / 切 tab / 退出 / 关闭窗口时调用，避免抖动的 400ms 内丢数据 */
+    persistNow() {
+      if (this._saveTimer) {
+        clearTimeout(this._saveTimer);
+        this._saveTimer = null;
+      }
+      this._writeNow();
     },
 
     /* ---------- 查询 ---------- */
