@@ -10,12 +10,12 @@
     const raw = HR.data.raw;
     const isWeb = window.api.__env === 'web';
     const storageCard = isWeb
-      ? '<div class="card"><div class="card-head"><h3>📁 数据存储位置</h3></div>' +
+      ? '<div class="card"><div class="card-head"><h3>' + HR.ico('folder') + ' 数据存储位置</h3></div>' +
         '<div class="muted small" id="stPath" style="word-break:break-all;margin-bottom:8px">加载中…</div>' +
         '<div class="muted small" style="margin-bottom:8px">网页版把数据保存在<b>你当前这台设备的浏览器</b>里（IndexedDB），不会上传服务器，清除浏览器数据会一并清空，建议定期「导出为 JSON」备份。</div>' +
         '<button class="btn ghost" id="stSeed">恢复演示数据</button>' +
         '</div>'
-      : '<div class="card"><div class="card-head"><h3>📁 数据存储位置</h3></div>' +
+      : '<div class="card"><div class="card-head"><h3>' + HR.ico('folder') + ' 数据存储位置</h3></div>' +
         '<div class="muted small" id="stPath" style="word-break:break-all;margin-bottom:8px">加载中…</div>' +
         '<div class="muted small" style="margin-bottom:8px">所有岗位、候选人、投递记录都实时写在这个 <b>data.json</b> 文件里，关掉应用再打开也不会丢。直接复制这个文件就是一份完整备份。</div>' +
         '<button class="btn ghost" id="stOpenDir">打开数据文件夹</button>' +
@@ -24,16 +24,16 @@
 
     el.innerHTML =
       '<div class="grid-2">' +
-      '<div class="card"><div class="card-head"><h3>💾 数据备份</h3></div>' +
+      '<div class="card"><div class="card-head"><h3>' + HR.ico('file-text') + ' 数据备份</h3></div>' +
       '<div class="field"><label>导出全部数据</label>' +
       '<div class="muted small" style="margin-bottom:6px">把当前 data.json 完整复制一份到你选择的位置' + (isWeb ? '（直接下载）。' : '（弹出系统保存对话框）。') + '换电脑时带过去即可。</div>' +
-      '<button class="btn" id="stExport">📤 导出数据</button></div>' +
+      '<button class="btn" id="stExport">' + HR.ico('download') + ' 导出数据</button></div>' +
       '<div class="field"><label>导入数据</label>' +
       '<div class="muted small" style="margin-bottom:6px">选择一个之前导出的 JSON 文件，<b>覆盖</b>当前全部数据。</div>' +
-      '<button class="btn ghost" id="stImport">📥 导入数据</button></div>' +
+      '<button class="btn ghost" id="stImport">' + HR.ico('upload') + ' 导入数据</button></div>' +
       '</div>' +
 
-      '<div class="card"><div class="card-head"><h3>📊 当前数据量</h3></div>' +
+      '<div class="card"><div class="card-head"><h3>' + HR.ico('database') + ' 当前数据量</h3></div>' +
       '<dl class="kv">' +
       '<dt>岗位</dt><dd>' + raw.jobs.length + ' 个（在招 ' + raw.jobs.filter((j) => !j.archived).length + ' 个）</dd>' +
       '<dt>简历</dt><dd>' + raw.candidates.length + ' 份（人才库 ' + raw.candidates.filter((r) => r.inTalentPool).length + ' 份）</dd>' +
@@ -46,7 +46,7 @@
 
       storageCard +
 
-      '<div class="card"><div class="card-head"><h3>🔤 同义词词典</h3></div>' +
+      '<div class="card"><div class="card-head"><h3>' + HR.ico('tag') + ' 同义词词典</h3></div>' +
       '<div class="muted small" style="margin-bottom:6px">每行一组，用 <b>/</b> 或 <b>、</b> 分隔（至少两个词才算一组）。' +
       '初筛打分时，规则里出现某个词，整组等价说法都会纳入匹配 —— 于是 HR 写「英语六级」、简历里写「CET-6」也能命中。</div>' +
       '<div class="field"><textarea class="textarea" id="stSynonyms" style="min-height:120px" ' +
@@ -58,7 +58,7 @@
       HR.scoring.SYNONYM_GROUPS.map((g) => '<div style="margin-top:2px">· ' + util.esc(g.join(' / ')) + '</div>').join('') +
       '</div></div>' +
 
-      '<div class="card"><div class="card-head"><h3>⚠️ 危险操作</h3></div>' +
+      '<div class="card"><div class="card-head"><h3>' + HR.ico('alert-triangle') + ' 危险操作</h3></div>' +
       '<div class="muted small" style="margin-bottom:8px">清空后所有岗位、简历、投递与面试记录都会被删除，且无法恢复。建议先导出备份。</div>' +
       '<button class="btn danger" id="stClear">清空全部数据</button>' +
       '</div>' +
@@ -216,5 +216,5 @@
     });
   }
 
-  HR.register({ key: 'settings', label: '设置', icon: '⚙️', render: render });
+  HR.register({ key: 'settings', label: '设置', render: render });
 })();

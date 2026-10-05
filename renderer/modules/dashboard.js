@@ -27,14 +27,46 @@
   const FN_MAX_HALF = 220;
 
   /* ---------- 顶部统计卡 ---------- */
-  function statCard(kind, icon, num, label) {
+  function statCard(kind, iconName, num, label) {
     return (
       '<div class="stat-card k-' + kind + '">' +
-      '<div class="stat-ico">' + icon + '</div>' +
-      '<div><div class="stat-num">' + num + '</div>' +
+      '<div class="stat-ico">' + HR.ico(iconName, 20) + '</div>' +
+      '<div><div class="stat-num" data-count="' + num + '">0</div>' +
       '<div class="stat-label">' + esc(label) + '</div></div>' +
       '</div>'
     );
+  }
+
+  /* 数字滚动：0 → 目标值，0.4s；用户开了「减少动态效果」时直接显示终值 */
+  function countUp(el, to) {
+    const target = Number(to) || 0;
+    if (!el) return;
+    const reduce =
+      window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce || !target) {
+      el.textContent = String(target);
+      return;
+    }
+    const start = performance.now();
+    const dur = 400;
+    function step(now) {
+      const p = Math.min(1, (now - start) / dur);
+      const eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = String(Math.round(target * eased));
+      if (p < 1) requestAnimationFrame(step);
+      else el.textContent = String(target);
+    }
+    requestAnimationFrame(step);
+  }
+
+  /* 图表的入场动画靠 CSS transition 实现：挂载后下一帧加 .in 类触发 */
+  function animateIn(scope) {
+    if (!scope) return;
+    const run = () => {
+      scope.querySelectorAll('.funnel-svg, .donut-svg, .bars-svg').forEach((s) => s.classList.add('in'));
+    };
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(run);
+    else run();
   }
 
   /* 漏斗 6 个阶段的数据 */
@@ -277,25 +309,25 @@
 
       el.innerHTML =
         '<div class="dashboard-grid">' +
-        statCard('jobs', '🏢', jobs.length, '在招岗位') +
-        statCard('resume', '📄', raw.candidates.length, '简历总数') +
-        statCard('screen', '🔍', pendingScreen, '待初筛') +
-        statCard('interview', '🗣️', pendingInterview, '待面试') +
+        statCard('jobs', 'briefcase', jobs.length, '在招岗位') +
+        statCard('resume', 'file-text', raw.candidates.length, '简历总数') +
+        statCard('screen', 'clipboard-check', pendingScreen, '待初筛') +
+        statCard('interview', 'message-square', pendingInterview, '待面试') +
         // 待跟进警示横幅：通栏显示在统计卡片下方（有数据时才渲染）
         bannerHtml(overdue) +
 
         '<div class="card funnel-card"><div class="card-head">' +
-        '<h3>🔻 招聘漏斗</h3>' +
+        '<h3>' + HR.ico('clipboard-check') + ' 招聘漏斗</h3>' +
         '<select class="select" id="funnelJob" style="width:200px"></select></div>' +
         '<div id="funnelBody"></div></div>' +
 
-        '<div class="card channel-card"><div class="card-head"><h3>📡 渠道来源分布</h3></div>' +
+        '<div class="card channel-card"><div class="card-head"><h3>' + HR.ico('database') + ' 渠道来源分布</h3></div>' +
         '<div id="channelBody"></div></div>' +
 
-        '<div class="card recent-card"><div class="card-head"><h3>📅 近 7 天入库简历</h3></div>' +
+        '<div class="card recent-card"><div class="card-head"><h3>' + HR.ico('columns') + ' 近 7 天入库简历</h3></div>' +
         '<div id="recentBody"></div></div>' +
 
-        '<div class="card overdue-card"><div class="card-head"><h3>⏰ 待跟进超 3 天</h3>' +
+        '<div class="card overdue-card"><div class="card-head"><h3>' + HR.ico('alert-triangle') + ' 待跟进超 3 天</h3>' +
         '<span class="badge ' + (overdue.length ? 'rej' : 'rec') + '" id="overdueCount">' + overdue.length + '</span></div>' +
         '<div id="overdueBody"></div></div>' +
         '</div>';
@@ -307,12 +339,23 @@
       } else {
         select.innerHTML = jobs.map((j) => '<option value="' + j.id + '">' + esc(j.name) + '</option>').join('');
         select.addEventListener('change', () => {
-          el.querySelector('#funnelBody').innerHTML = funnelSvg(funnelStages(select.value));
+          const body = el.querySelector('#funnelBody');
+          body.innerHTML = funnelSvg(funnelStages(select.value));
+          animateIn(body);
         });
       }
-      el.querySelector('#funnelBody').innerHTML = jobs.length
+      const funnelBody = el.querySelector('#funnelBody');
+      funnelBody.innerHTML = jobs.length
         ? funnelSvg(funnelStages(jobs[0].id))
-        : '<div class="empty"><span class="empty-ico">🏢</span>还没有在招岗位，请先到「岗位管理」创建一个</div>';
+        : HR.ui.empty(
+            'briefcase',
+            '还没有在招岗位',
+            '先到「岗位管理」创建一个岗位，漏斗才会有数据',
+            '<button class="btn" id="dashGoJobs">' + HR.ico('arrow-right') + ' 去创建岗位</button>'
+          );
+
+      const dashGoJobs = el.querySelector('#dashGoJobs');
+      if (dashGoJobs) dashGoJobs.addEventListener('click', () => HR.goTo('jobs'));
 
       const channelBody = el.querySelector('#channelBody');
       channelBody.innerHTML = donutHtml(channelData());
@@ -320,9 +363,13 @@
 
       el.querySelector('#recentBody').innerHTML = barsSvg(recentDays());
 
+      /* 统计卡数字滚动 + 图表入场动画 */
+      el.querySelectorAll('.stat-num').forEach((n) => countUp(n, n.getAttribute('data-count')));
+      animateIn(el);
+
       const overdueBody = el.querySelector('#overdueBody');
       if (!overdue.length) {
-        overdueBody.innerHTML = HR.ui.empty('✅', '没有超期未跟进的候选人');
+        overdueBody.innerHTML = HR.ui.empty('check', '没有超期未跟进的候选人', '超过 3 天未跟进的候选人会在这里提醒');
       } else {
         overdueBody.innerHTML =
           '<ul class="alert-list">' +

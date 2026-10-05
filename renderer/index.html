@@ -9,43 +9,71 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header class="appbar">
-    <div class="brand">
-      <span class="brand-logo">🧑‍💼</span>
-      <div class="brand-text">
-        <h1>HR 招聘管理系统</h1>
-        <span class="brand-sub">本地运行 · 数据不出本机</span>
+  <div class="app-shell">
+    <!-- 左侧导航（可折叠为 56px 图标条） -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sb-head">
+        <span class="sb-logo" id="sbLogo"></span>
+        <span class="sb-name">HR 招聘管理系统</span>
+      </div>
+      <nav class="sb-nav" id="tabs"></nav>
+      <div class="sb-foot">
+        <button class="sb-import" id="sbImport"><span>导入简历</span></button>
+        <div class="sb-foot-row">
+          <button class="sb-ghost" id="themeBtn" title="切换深色模式"></button>
+          <button class="sb-ghost" id="sbToggle" title="收起侧边栏（Ctrl+B）"></button>
+        </div>
+      </div>
+    </aside>
+
+    <div class="app-main">
+      <div class="topbar">
+        <span class="topbar-title" id="pageTitle">仪表盘</span>
+        <span class="spacer"></span>
+        <!-- 快捷键提示：hover 展开 -->
+        <div class="kbd-hint" id="kbdHint" tabindex="0">
+          <span class="kbd-hint-btn"></span>
+          <div class="kbd-pop">
+            <div class="kbd-row"><span>全局搜索</span><kbd>Ctrl</kbd><kbd>K</kbd></div>
+            <div class="kbd-row"><span>切换模块</span><kbd>Ctrl</kbd><kbd>1</kbd><span class="kbd-dim">~</span><kbd>8</kbd></div>
+            <div class="kbd-row"><span>收起侧边栏</span><kbd>Ctrl</kbd><kbd>B</kbd></div>
+            <div class="kbd-row"><span>打开选中行</span><kbd>Enter</kbd></div>
+            <div class="kbd-row"><span>关闭弹窗</span><kbd>Esc</kbd></div>
+          </div>
+        </div>
+      </div>
+
+      <main id="views">
+        <section class="pane" data-pane="dashboard"></section>
+        <section class="pane" data-pane="pool"></section>
+        <section class="pane" data-pane="jobs"></section>
+        <section class="pane" data-pane="screening"></section>
+        <section class="pane" data-pane="kanban"></section>
+        <section class="pane" data-pane="interview"></section>
+        <section class="pane" data-pane="talent"></section>
+        <section class="pane" data-pane="settings"></section>
+      </main>
+
+      <div class="status-bar">
+        <span id="statusText">就绪</span>
+        <span id="statusRight"></span>
       </div>
     </div>
-    <nav class="tabs" id="tabs"></nav>
-  </header>
-
-  <main id="views">
-    <section class="pane" data-pane="dashboard"></section>
-    <section class="pane" data-pane="pool"></section>
-    <section class="pane" data-pane="jobs"></section>
-    <section class="pane" data-pane="screening"></section>
-    <section class="pane" data-pane="kanban"></section>
-    <section class="pane" data-pane="interview"></section>
-    <section class="pane" data-pane="talent"></section>
-    <section class="pane" data-pane="settings"></section>
-  </main>
-
-  <div class="status-bar">
-    <span id="statusText">就绪</span>
-    <span id="statusRight"></span>
   </div>
 
   <div id="toasts" class="toasts"></div>
   <div id="modalRoot" class="modal-root"></div>
+  <div id="paletteRoot" class="palette-root"></div>
+  <div id="ctxRoot" class="ctx-root"></div>
   <div id="dropMask" class="drop-mask">
     <div class="drop-mask-inner">
-      <div class="drop-mask-icon">📥</div>
+      <div class="drop-mask-icon" id="dropIcon"></div>
       <div>松开鼠标，导入简历文件</div>
     </div>
   </div>
 
   <script src="core/utils.js"></script>
+  <script src="core/icons.js"></script>
   <script src="core/browser-parse.js"></script>
   <script src="core/bridge-web.js"></script>
   <script src="core/scoring.js"></script>
@@ -61,6 +89,8 @@
   <script src="modules/interview.js"></script>
   <script src="modules/talent.js"></script>
   <script src="modules/settings.js"></script>
+  <script src="modules/palette.js"></script>
+  <script src="modules/contextmenu.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

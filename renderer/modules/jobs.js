@@ -62,7 +62,7 @@
       '<div class="card"><div class="toolbar">' +
       '<strong>岗位列表</strong><span class="muted small">共 ' + jobs.length + ' 个（在招 ' + jobs.filter((j) => !j.archived).length + ' 个）</span>' +
       '<span class="spacer"></span>' +
-      '<button class="btn" id="jobNew">＋ 新增岗位</button>' +
+      '<button class="btn" id="jobNew">' + HR.ico('plus') + ' 新增岗位</button>' +
       '<button class="btn ghost" id="jobTplIntern">套用实习生模板</button>' +
       '<button class="btn ghost" id="jobTplCampus">套用校招模板</button>' +
       '</div>' +
@@ -71,7 +71,7 @@
       '</div>' +
       (jobs.length
         ? '<div class="job-grid">' + jobs.map(cardHtml).join('') + '</div>'
-        : HR.ui.empty('🏢', '还没有岗位，点「新增岗位」或直接套用模板'));
+        : HR.ui.empty('briefcase', '还没有任何岗位', '点「新增岗位」或直接套用模板即可创建'));
 
     el.querySelector('#jobNew').addEventListener('click', () => openEditor(null));
     el.querySelector('#jobTplIntern').addEventListener('click', () => openEditor(null, 'intern'));
@@ -105,11 +105,11 @@
       '<div class="job-card' + (job.archived ? ' archived' : ' active') + '">' +
       '<h4>' + esc(job.name) + (job.archived ? ' <span class="tag gray">已归档</span>' : ' <span class="tag green">在招</span>') + '</h4>' +
       '<div class="job-meta">' +
-      '<span>🏷️ ' + esc(job.department || '未填部门') + '</span>' +
-      '<span>📡 ' + esc(job.channel || '—') + '</span>' +
-      '<span>📐 规则 ' + ruleCount(job) + ' 条</span>' +
-      '<span>👥 候选人 ' + apps.length + '</span>' +
-      '<span>🕒 ' + util.fmtDate(job.createdAt) + '</span>' +
+      '<span>' + HR.ico('tag') + ' ' + esc(job.department || '未填部门') + '</span>' +
+      '<span>' + HR.ico('database') + ' ' + esc(job.channel || '—') + '</span>' +
+      '<span>' + HR.ico('clipboard-check') + ' 规则 ' + ruleCount(job) + ' 条</span>' +
+      '<span>' + HR.ico('users') + ' 候选人 ' + apps.length + '</span>' +
+      '<span>' + HR.ico('file-text') + ' ' + util.fmtDate(job.createdAt) + '</span>' +
       '</div>' +
       '<div class="job-meta"><span title="JD 正文">' + esc(util.truncate((job.jd || '').replace(/\s+/g, ' '), 60) || '（未填写 JD）') + '</span></div>' +
       '<div class="job-actions">' +
@@ -168,7 +168,7 @@
       '</div>' +
       '<div class="field"><label>JD 正文（用于计算简历匹配度）</label>' +
       '<div class="toolbar" style="margin-bottom:6px">' +
-      '<button class="btn ghost small" id="jdUpload" type="button">📎 上传 JD 文件解析</button>' +
+      '<button class="btn ghost small" id="jdUpload" type="button">' + HR.ico('upload') + ' 上传 JD 文件解析</button>' +
       '<button class="btn ghost small" id="jdClear" type="button">清空</button>' +
       (templateKey ? '<span class="tag green">已套用模板：' + esc(TEMPLATES[templateKey].name) + '</span>' : '') +
       '</div>' +
@@ -184,7 +184,7 @@
         '<div class="card" style="margin:0"><div class="field" style="margin-bottom:6px">' +
         '<label>' + esc(title) + ' <span class="muted small">' + esc(hint) + '</span></label>' +
         '<div id="rows_' + key + '"></div>' +
-        '<button class="btn ghost small" type="button" data-add="' + key + '">＋ 添加一条</button>' +
+        '<button class="btn ghost small" type="button" data-add="' + key + '">' + HR.ico('plus') + ' 添加一条</button>' +
         '<div class="hint">一条里可用 / 或 、 分隔同义词，例如：Excel 熟练 / 表格处理</div>' +
         '</div></div>'
       );
@@ -277,5 +277,5 @@
   }
 
   HR.jobs = { openEditor, TEMPLATES };
-  HR.register({ key: 'jobs', label: '岗位管理', icon: '🏢', render: render });
+  HR.register({ key: 'jobs', label: '岗位管理', render: render });
 })();

@@ -3,6 +3,11 @@
   const HR = (window.HR = window.HR || {});
 
   HR.modules = {};
+  /* 图标快捷方式：icons.js 在后加载，所以这里延迟到调用时取值 */
+  HR.ico = function (name, size) {
+    return HR.icons ? HR.icons.icon(name, size) : '';
+  };
+
   HR.moduleOrder = [];
   HR.register = function (mod) {
     HR.modules[mod.key] = mod;

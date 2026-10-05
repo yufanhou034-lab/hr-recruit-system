@@ -87,15 +87,41 @@
     return handle;
   }
 
-  function confirm(title, message, okLabel, kind) {
+  /**
+   * 危险操作确认弹窗
+   * @param {string} [requireText] 非空时要求用户原样输入这段文字才能确认（清空 / 永久删除用）
+   */
+  function confirm(title, message, okLabel, kind, requireText) {
     return new Promise((resolve) => {
+      const need = String(requireText || '');
+      const body =
+        '<p class="modal-text">' + esc(message) + '</p>' +
+        (need
+          ? '<div class="field" style="margin-top:14px"><label>请输入「' + esc(need) + '」以确认</label>' +
+            '<input class="input" id="cfmText" autocomplete="off" spellcheck="false" placeholder="' + esc(need) + '" /></div>'
+          : '');
       const h = modal({
         title: title,
-        body: '<p class="modal-text">' + esc(message) + '</p>',
+        body: body,
         width: 430,
         actions: [
           { label: '取消', kind: 'ghost', onClick() { h.close(); resolve(false); } },
-          { label: okLabel || '确定', kind: kind || 'danger', onClick() { h.close(); resolve(true); } }
+          {
+            label: okLabel || '确定',
+            kind: kind || 'danger',
+            onClick() {
+              if (need) {
+                const el = document.getElementById('cfmText');
+                const v = ((el && el.value) || '').trim();
+                if (v !== need) {
+                  toast('请先输入「' + need + '」再确认', 'error');
+                  return;
+                }
+              }
+              h.close();
+              resolve(true);
+            }
+          }
         ]
       });
     });
@@ -127,8 +153,37 @@
     });
   }
 
-  function empty(icon, text) {
-    return '<div class="empty"><span class="empty-ico">' + (icon || '📭') + '</span>' + esc(text || '暂无数据') + '</div>';
+  /**
+   * 空状态：插画（SVG）+ 标题 + 说明 + 可选主按钮
+   * @param {string} iconName 图标名（见 core/icons.js）；不在图标表里时按 emoji 处理
+   * @param {string} title    标题
+   * @param {string} [desc]   一行说明
+   * @param {string} [actionHtml] 操作区 HTML，例如 '<button class="btn" id="xxx">导入简历</button>'
+   */
+  function empty(iconName, title, desc, actionHtml) {
+    const art =
+      HR.icons && HR.icons.has(iconName)
+        ? HR.icons.illustration(iconName, 64)
+        : '<span class="empty-art-emoji">' + esc(iconName || '') + '</span>';
+    return (
+      '<div class="empty">' + art +
+      '<div class="empty-title">' + esc(title || '暂无数据') + '</div>' +
+      (desc ? '<div class="empty-desc">' + esc(desc) + '</div>' : '') +
+      (actionHtml ? '<div class="empty-actions">' + actionHtml + '</div>' : '') +
+      '</div>'
+    );
+  }
+
+  /** 复制到剪贴板并给出 toast 提示 */
+  async function copy(text) {
+    const t = String(text == null ? '' : text);
+    if (!t) return;
+    try {
+      await window.api.copyText(t);
+      toast('已复制');
+    } catch (e) {
+      toast('复制失败，请手动选择复制', 'error');
+    }
   }
 
   function setStatus(text) {
@@ -225,5 +280,5 @@
     };
   }
 
-  HR.ui = { toast, modal, confirm, choose, empty, setStatus, virtualTable };
+  HR.ui = { toast, modal, confirm, choose, empty, setStatus, virtualTable, copy };
 })();

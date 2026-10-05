@@ -34,14 +34,21 @@
         ? jobs.map((j) => '<option value="' + j.id + '"' + (state.matchJobId === j.id ? ' selected' : '') + '>' + esc(j.name) + '</option>').join('')
         : '<option value="">（没有在招岗位）</option>') +
       '</select>' +
-      '<button class="btn" id="tpMatch"' + (jobs.length ? '' : ' disabled') + '>🔍 新岗位匹配</button>' +
+      '<button class="btn" id="tpMatch"' + (jobs.length ? '' : ' disabled') + '>' + HR.ico('search') + ' 新岗位匹配</button>' +
       '</div>' +
       '<div class="muted small">「新岗位匹配」会按关键词相似度（字符 2-gram 余弦）从人才库里挑出与该岗位 JD 最匹配的 5 个人。</div>' +
       '</div>' +
       (state.matches ? matchPanelHtml() : '') +
       (rows.length
         ? '<div class="job-grid">' + rows.map(talentCardHtml).join('') + '</div>'
-        : '<div class="card">' + HR.ui.empty('⭐', '人才库里还没有候选人，可在简历池把候选人「移入人才库」') + '</div>');
+        : '<div class="card">' +
+          HR.ui.empty(
+            'database',
+            '人才库还是空的',
+            '可在简历池把候选人「移入人才库」',
+            '<button class="btn" id="tpGoPool">' + HR.ico('users') + ' 去简历池</button>'
+          ) +
+          '</div>');
 
     el.querySelector('#tpTag').addEventListener('change', (e) => {
       state.tag = e.target.value;
@@ -53,6 +60,8 @@
       state.matches = null;
     });
     el.querySelector('#tpMatch').addEventListener('click', () => runMatch(jobSelect.value));
+    const goPoolBtn = el.querySelector('#tpGoPool');
+    if (goPoolBtn) goPoolBtn.addEventListener('click', () => HR.goTo('pool'));
 
     el.addEventListener('click', async (e) => {
       const btn = e.target.closest('button[data-act]');
@@ -81,11 +90,11 @@
   function matchPanelHtml() {
     const job = HR.data.job(state.matchJobId);
     if (!state.matches.length) {
-      return '<div class="card"><div class="card-head"><h3>🔍 匹配结果 · ' + esc(job ? job.name : '') + '</h3></div>' +
-        HR.ui.empty('🙈', '人才库里暂时没有与该岗位 JD 匹配的候选人') + '</div>';
+      return '<div class="card"><div class="card-head"><h3>' + HR.ico('search') + ' 匹配结果 · ' + esc(job ? job.name : '') + '</h3></div>' +
+        HR.ui.empty('search', '暂无匹配候选人', '人才库里暂时没有与该岗位 JD 匹配的候选人') + '</div>';
     }
     return (
-      '<div class="card"><div class="card-head"><h3>🔍 匹配结果 · ' + esc(job ? job.name : '') + '</h3>' +
+      '<div class="card"><div class="card-head"><h3>' + HR.ico('search') + ' 匹配结果 · ' + esc(job ? job.name : '') + '</h3>' +
       '<span class="muted small">按 JD 相似度排序，取前 5 名</span></div>' +
       state.matches
         .map((m, i) => {
@@ -142,9 +151,9 @@
       '<div class="cell-sub">' + esc(r.school || '学校未识别') + ' · ' + esc(r.degree || '—') + ' · ' + esc(r.major || '—') + '</div></div>' +
       '</div>' +
       '<div class="job-meta">' +
-      '<span class="mono">📱 ' + esc(util.maskPhone(r.phone)) + '</span>' +
-      '<span>📡 ' + esc(r.source || '其他') + '</span>' +
-      '<span>🕒 ' + util.fmtDate(r.createdAt) + '</span>' +
+      '<span class="mono">' + HR.ico('message-square') + ' ' + esc(util.maskPhone(r.phone)) + '</span>' +
+      '<span>' + HR.ico('database') + ' ' + esc(r.source || '其他') + '</span>' +
+      '<span>' + HR.ico('file-text') + ' ' + util.fmtDate(r.createdAt) + '</span>' +
       '</div>' +
       '<div>' + tags + '</div>' +
       '<div class="job-actions">' +
@@ -155,5 +164,5 @@
     );
   }
 
-  HR.register({ key: 'talent', label: '人才库', icon: '⭐', render: render });
+  HR.register({ key: 'talent', label: '人才库', render: render });
 })();

@@ -148,7 +148,7 @@
       '<div class="field" id="mailBox" style="display:none;margin-top:10px">' +
       '<label>邮件内容（可编辑）</label>' +
       '<textarea class="textarea" id="mailText" style="min-height:180px"></textarea>' +
-      '<button class="btn small" id="mailCopy" style="margin-top:6px">📋 复制到剪贴板</button>' +
+      '<button class="btn small" id="mailCopy" style="margin-top:6px">' + HR.ico('copy') + ' 复制到剪贴板</button>' +
       '</div>' +
       '</div></div>';
 
@@ -237,5 +237,5 @@
   }
 
   HR.kanban = { openDetail };
-  HR.register({ key: 'kanban', label: '跟进看板', icon: '🗂️', render: render });
+  HR.register({ key: 'kanban', label: '跟进看板', render: render });
 })();

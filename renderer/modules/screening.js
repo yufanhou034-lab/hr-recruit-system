@@ -14,7 +14,16 @@
   function render(el) {
     const jobs = HR.data.jobs(false);
     if (!jobs.length) {
-      el.innerHTML = '<div class="card">' + HR.ui.empty('🏢', '请先在「岗位管理」里创建至少一个在招岗位') + '</div>';
+      el.innerHTML =
+        '<div class="card">' +
+        HR.ui.empty(
+          'briefcase',
+          '还没有在招岗位',
+          '请先在「岗位管理」里创建至少一个在招岗位',
+          '<button class="btn" id="scGoJobs">' + HR.ico('arrow-right') + ' 去创建岗位</button>'
+        ) +
+        '</div>';
+      el.querySelector('#scGoJobs').addEventListener('click', () => HR.goTo('jobs'));
       return;
     }
     if (!state.jobId || !HR.data.job(state.jobId)) state.jobId = jobs[0].id;
@@ -41,13 +50,13 @@
       '<span class="tag ' + (job.archived ? '' : 'green') + '">' + (job.archived ? '已归档' : '在招') + '</span>' +
       '<span class="muted small">候选人 ' + apps.length + ' 人 · 已打分 ' + scored.length + ' 人 · 待打分 ' + unscored.length + ' 人</span>' +
       '<span class="spacer"></span>' +
-      (pendingAdd ? '<button class="btn ghost" id="scAdd">＋ 从简历池加入待初筛（' + pendingAdd + '）</button>' : '') +
-      '<button class="btn" id="scRun"' + (unscored.length ? '' : ' disabled') + '>🎯 开始初筛打分</button>' +
+      (pendingAdd ? '<button class="btn ghost" id="scAdd">' + HR.ico('plus') + ' 从简历池加入待初筛（' + pendingAdd + '）</button>' : '') +
+      '<button class="btn" id="scRun"' + (unscored.length ? '' : ' disabled') + '>' + HR.ico('clipboard-check') + ' 开始初筛打分</button>' +
       '</div>' +
       '<div class="toolbar">' +
       '<button class="btn ghost" id="scPass">推荐项一键转「待面试」</button>' +
       '<button class="btn ghost" id="scReject">淘汰项一键转人才库</button>' +
-      '<button class="btn ghost" id="scExport">📤 导出 CSV</button>' +
+      '<button class="btn ghost" id="scExport">' + HR.ico('download') + ' 导出 CSV</button>' +
       '<span class="muted small">规则分：必备 +20/−15、加分 +10、排除直接淘汰；综合分 = 规则分 + JD 匹配度 × 0.3；≥60 推荐 / ≥30 待定</span>' +
       '</div>' +
       '<div class="toolbar"><span class="muted small">JD 正文：' + (job.jd ? esc(util.truncate(job.jd.replace(/\s+/g, ' '), 70)) : '<span class="text-red">未填写，匹配度将按 0 计算</span>') + '</span></div>' +
@@ -57,7 +66,11 @@
           '<th style="width:52px">排名</th><th>姓名</th><th>学校</th><th class="mono">规则分</th>' +
           '<th class="mono">JD 匹配度</th><th class="mono">综合分</th><th>判定</th><th>命中项</th><th>缺失项</th><th style="width:80px">操作</th>' +
           '</tr></thead><tbody id="scBody"></tbody></table></div>'
-        : HR.ui.empty('🎯', '该岗位还没有候选人，点「从简历池加入待初筛」把简历池的人加进来'));
+        : HR.ui.empty(
+            'clipboard-check',
+            '该岗位还没有候选人',
+            '点上方「从简历池加入待初筛」把简历池的人加进来'
+          ));
 
     el.querySelector('#scJob').addEventListener('change', (e) => {
       state.jobId = e.target.value;
@@ -317,7 +330,6 @@
   HR.register({
     key: 'screening',
     label: '初筛打分',
-    icon: '🎯',
     render: render,
     onShow(params) {
       if (params && params.jobId) {

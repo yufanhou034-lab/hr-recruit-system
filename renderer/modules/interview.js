@@ -25,7 +25,16 @@
   function render(el) {
     const list = candidates();
     if (!list.length) {
-      el.innerHTML = '<div class="card">' + HR.ui.empty('📝', '当前没有「待面试 / 面试中」的候选人，先在初筛或看板里把候选人推进到待面试') + '</div>';
+      el.innerHTML =
+        '<div class="card">' +
+        HR.ui.empty(
+          'message-square',
+          '暂无待面试候选人',
+          '当前没有「待面试 / 面试中」的候选人，先在初筛或看板里把候选人推进到待面试',
+          '<button class="btn" id="ivGoScreen">' + HR.ico('clipboard-check') + ' 去初筛打分</button>'
+        ) +
+        '</div>';
+      el.querySelector('#ivGoScreen').addEventListener('click', () => HR.goTo('screening'));
       return;
     }
     if (!state.appId || !HR.data.application(state.appId)) {
@@ -57,7 +66,7 @@
       '<span class="muted small">已有面试记录 ' + history.length + ' 轮</span>' +
       '</div></div>' +
       '<div class="grid-2">' +
-      '<div class="card"><div class="card-head"><h3>📝 结构化评分</h3></div>' +
+      '<div class="card"><div class="card-head"><h3>' + HR.ico('clipboard-check') + ' 结构化评分</h3></div>' +
       '<div class="field"><label>面试轮次</label><select class="select" id="ivRound">' +
       ROUNDS.map((x) => '<option value="' + x + '">' + x + '</option>').join('') +
       '</select></div>' +
@@ -84,7 +93,7 @@
       '<div class="toolbar"><button class="btn" id="ivSave">保存面试记录</button>' +
       '<button class="btn ghost" id="ivProfile">查看候选人档案</button></div>' +
       '</div>' +
-      '<div class="card"><div class="card-head"><h3>📚 历史面试记录</h3></div>' +
+      '<div class="card"><div class="card-head"><h3>' + HR.ico('file-text') + ' 历史面试记录</h3></div>' +
       (history.length
         ? history
             .map(
@@ -99,7 +108,7 @@
                 '</div>'
             )
             .join('')
-        : HR.ui.empty('📚', '还没有面试记录')) +
+        : HR.ui.empty('file-text', '暂无面试记录', '在左侧完成结构化评分并保存后会展示在这里')) +
       '</div>' +
       '</div>';
 
@@ -188,7 +197,6 @@
   HR.register({
     key: 'interview',
     label: '面试评估',
-    icon: '📋',
     render: render,
     onShow(params) {
       if (params && params.appId) state.appId = params.appId;

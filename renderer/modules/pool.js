@@ -49,9 +49,9 @@
       '<option value="out"' + (filters.talent === 'out' ? ' selected' : '') + '>不在人才库</option>' +
       '</select>' +
       '<span class="spacer"></span>' +
-      '<button class="btn" id="poolImport">📥 导入文件</button>' +
-      '<button class="btn ghost" id="poolPaste">📋 粘贴文本</button>' +
-      '<button class="btn ghost" id="poolManual">✍️ 手动录入</button>' +
+      '<button class="btn" id="poolImport">' + HR.ico('upload') + ' 导入文件</button>' +
+      '<button class="btn ghost" id="poolPaste">' + HR.ico('clipboard-check') + ' 粘贴文本</button>' +
+      '<button class="btn ghost" id="poolManual">' + HR.ico('pencil') + ' 手动录入</button>' +
       '</div>' +
       '<div class="muted small">共 ' + rows.length + ' 份（可把 .docx / .pdf / .txt / 图片直接拖进窗口自动入库）</div>' +
       '</div>' +
@@ -60,7 +60,12 @@
         ? '<table><thead><tr>' +
           '<th>姓名 / 学校</th><th>电话</th><th>学历</th><th>专业</th><th>来源</th><th>标签</th><th>入库时间</th><th style="width:230px">操作</th>' +
           '</tr></thead><tbody id="poolBody"></tbody></table>'
-        : HR.ui.empty('📄', '简历池还是空的，点右上角导入文件或直接拖文件进窗口')) +
+        : HR.ui.empty(
+            'inbox',
+            '简历池还是空的',
+            '把 .docx / .pdf / .txt / Excel / 图片拖进窗口即可自动解析入库，或点击下面的按钮选择文件',
+            '<button class="btn" id="poolEmptyImport">' + HR.ico('upload') + ' 导入简历</button>'
+          )) +
       '</div>';
 
     el.querySelector('#poolSearch').addEventListener(
@@ -99,7 +104,12 @@
         else if (act === 'tag') openTag(id);
         else if (act === 'talent') toggleTalent(id);
         else if (act === 'del') removeResume(id);
+        else if (act === 'copy') HR.ui.copy(btn.getAttribute('data-copy'));
       });
+
+    /* 空状态里的「导入简历」按钮 */
+    const emptyImp = el.querySelector('#poolEmptyImport');
+    if (emptyImp) emptyImp.addEventListener('click', importFromDialog);
 
     /* 虚拟滚动：只渲染可视区内的行（上千份简历时避免一次性创建上千个 DOM 行） */
     if (rows.length) {
@@ -107,18 +117,24 @@
         scroller: el.querySelector('.vt-wrap'),
         tbody: el.querySelector('#poolBody'),
         total: rows.length,
-        rowHtml: (i) => rowHtml(rows[i]),
+        rowHtml: (i) => rowHtml(rows[i], i),
         colSpan: 8
       });
     }
   }
 
-  function rowHtml(r) {
+  function rowHtml(r, i) {
     return (
-      '<tr>' +
+      '<tr class="' + (i % 2 ? 'alt' : '') + '" data-id="' + esc(r.id) + '">' +
       '<td><div class="cell-name">' + esc(r.name) + (r.inTalentPool ? ' <span class="tag purple">人才库</span>' : '') + '</div>' +
       '<div class="cell-sub">' + esc(r.school || '学校未识别') + '</div></td>' +
-      '<td class="nowrap mono">' + esc(util.maskPhone(r.phone)) + '</td>' +
+      '<td class="nowrap"><span class="phone-cell">' +
+      '<span class="phone-mask mono">' + esc(util.maskPhone(r.phone)) + '</span>' +
+      '<span class="phone-full mono">' + esc(r.phone || '—') + '</span>' +
+      (r.phone
+        ? '<button class="copy-mini" data-act="copy" data-copy="' + esc(r.phone) + '" title="复制手机号">' + HR.ico('copy', 13) + '</button>'
+        : '') +
+      '</span></td>' +
       '<td class="nowrap">' + esc(r.degree || '—') + '</td>' +
       '<td>' + esc(r.major || '—') + '</td>' +
       '<td class="nowrap">' + esc(r.source || '其他') + '</td>' +
@@ -440,6 +456,6 @@
     HR.ui.toast('已删除', 'success');
   }
 
-  HR.pool = { ingestParsed, openDetail, openForm };
-  HR.register({ key: 'pool', label: '简历池', icon: '📄', render: render });
+  HR.pool = { ingestParsed, openDetail, openForm, openTag, toggleTalent, removeResume, importFromDialog };
+  HR.register({ key: 'pool', label: '简历池', render: render });
 })();
