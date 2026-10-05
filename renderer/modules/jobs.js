@@ -109,6 +109,8 @@
       '<span>' + HR.ico('database') + ' ' + esc(job.channel || '—') + '</span>' +
       '<span>' + HR.ico('clipboard-check') + ' 规则 ' + ruleCount(job) + ' 条</span>' +
       '<span>' + HR.ico('users') + ' 候选人 ' + apps.length + '</span>' +
+      '<span>' + HR.ico('target') + ' 招聘 ' + (job.headcount || 1) + ' 人</span>' +
+      '<span>' + HR.ico('message-square') + ' 题库 ' + ((job.interviewQuestions || []).length) + ' 题</span>' +
       '<span>' + HR.ico('file-text') + ' ' + util.fmtDate(job.createdAt) + '</span>' +
       '</div>' +
       '<div class="job-meta"><span title="JD 正文">' + esc(util.truncate((job.jd || '').replace(/\s+/g, ' '), 60) || '（未填写 JD）') + '</span></div>' +
@@ -150,7 +152,19 @@
       name: job ? job.name : tpl ? tpl.name : '',
       department: job ? job.department || '' : tpl ? tpl.department : '',
       channel: job ? job.channel || HR.SOURCES[0] : HR.SOURCES[0],
+      channelCost: job ? job.channelCost || 0 : 0,
+      headcount: job ? job.headcount || 1 : 1,
       jd: job ? job.jd || '' : tpl ? tpl.jd : '',
+      interviewQuestions: job
+        ? (job.interviewQuestions || []).map((q) => ({
+            id: q.id,
+            round: q.round || HR.INTERVIEW_ROUNDS[0],
+            question: q.question || '',
+            anchor5: q.anchor5 || '',
+            anchor3: q.anchor3 || '',
+            anchor1: q.anchor1 || ''
+          }))
+        : [],
       rules: {
         must: job ? (job.rules.must || []).map((r) => ({ text: r.text, veto: !!r.veto })) : tpl ? tpl.rules.must.map((r) => ({ text: r.text, veto: !!r.veto })) : [],
         plus: job ? (job.rules.plus || []).map((r) => ({ text: r.text })) : tpl ? tpl.rules.plus.map((r) => ({ text: r.text })) : [],
@@ -166,6 +180,12 @@
       HR.SOURCES.map((s) => '<option value="' + esc(s) + '"' + (model.channel === s ? ' selected' : '') + '>' + esc(s) + '</option>').join('') +
       '</select></div>' +
       '</div>' +
+      '<div class="grid-3">' +
+      '<div class="field"><label>招聘人数</label><input class="input" id="jHeadcount" type="number" min="1" value="' + esc(model.headcount || 1) + '" /></div>' +
+      '<div class="field"><label>渠道投入费用（元）</label><input class="input" id="jChannelCost" type="number" min="0" value="' + esc(model.channelCost || 0) + '" />' +
+      '<div class="hint">该岗位在主招渠道上投入的费用，仪表盘的渠道 ROI 用它折算单个入职成本</div></div>' +
+      '<div></div>' +
+      '</div>' +
       '<div class="field"><label>JD 正文（用于计算简历匹配度）</label>' +
       '<div class="toolbar" style="margin-bottom:6px">' +
       '<button class="btn ghost small" id="jdUpload" type="button">' + HR.ico('upload') + ' 上传 JD 文件解析</button>' +
@@ -177,7 +197,13 @@
       ruleBlock('must', '必备项', '命中 +20，未命中 −15；勾选「一票否决」的未命中直接淘汰', true) +
       ruleBlock('plus', '加分项', '命中 +10', false) +
       ruleBlock('exclude', '排除项', '命中直接淘汰', false) +
-      '</div>';
+      '</div>' +
+      '<div class="card" style="margin:0"><div class="field" style="margin-bottom:6px">' +
+      '<label>面试题库 <span class="muted small">按轮次维护题目；面试评估时可按轮次逐题打分</span></label>' +
+      '<div id="rows_q"></div>' +
+      '<button class="btn ghost small" type="button" data-addq="1">' + HR.ico('plus') + ' 添加一道题</button>' +
+      '<div class="hint">每道题可填写 5 / 3 / 1 分的行为锚点描述，帮助面试官判断该给几分。</div>' +
+      '</div></div>';
 
     function ruleBlock(key, title, hint, hasVeto) {
       return (
@@ -216,6 +242,47 @@
         .filter(Boolean);
     }
 
+    /* ---- 面试题库：一轮一行，含 5/3/1 分锚点 ---- */
+    function addQRow(item) {
+      const wrap = box.querySelector('#rows_q');
+      const row = document.createElement('div');
+      row.className = 'rule-row q-row';
+      row.setAttribute('data-qid', (item && item.id) || util.uid('q'));
+      row.innerHTML =
+        '<select class="select q-round">' +
+        HR.INTERVIEW_ROUNDS.map((r) => '<option value="' + esc(r) + '">' + esc(r) + '</option>').join('') +
+        '</select>' +
+        '<input class="input q-q" placeholder="题目，如：请描述一次你推进跨部门协作的经历" />' +
+        '<input class="input q-a5" placeholder="5 分锚点（优秀表现）" />' +
+        '<input class="input q-a3" placeholder="3 分锚点（合格表现）" />' +
+        '<input class="input q-a1" placeholder="1 分锚点（不足表现）" />' +
+        '<button class="btn ghost small" type="button" data-del>删除</button>';
+      row.querySelector('.q-round').value = (item && item.round) || HR.INTERVIEW_ROUNDS[0];
+      row.querySelector('.q-q').value = (item && item.question) || '';
+      row.querySelector('.q-a5').value = (item && item.anchor5) || '';
+      row.querySelector('.q-a3').value = (item && item.anchor3) || '';
+      row.querySelector('.q-a1').value = (item && item.anchor1) || '';
+      row.querySelector('[data-del]').addEventListener('click', () => row.remove());
+      wrap.appendChild(row);
+    }
+
+    function collectQ() {
+      return [...box.querySelectorAll('#rows_q .q-row')]
+        .map((row) => {
+          const question = row.querySelector('.q-q').value.trim();
+          if (!question) return null;
+          return {
+            id: row.getAttribute('data-qid') || util.uid('q'),
+            round: row.querySelector('.q-round').value,
+            question: question,
+            anchor5: row.querySelector('.q-a5').value.trim(),
+            anchor3: row.querySelector('.q-a3').value.trim(),
+            anchor1: row.querySelector('.q-a1').value.trim()
+          };
+        })
+        .filter(Boolean);
+    }
+
     let box = null;
     HR.ui.modal({
       title: job ? '编辑岗位 · ' + job.name : '新增岗位',
@@ -227,9 +294,11 @@
           model.rules[key].forEach((item) => addRow(key, item));
           if (!model.rules[key].length && key !== 'exclude') addRow(key, null);
         });
+        model.interviewQuestions.forEach((item) => addQRow(item));
         box.addEventListener('click', (e) => {
           const add = e.target.closest('[data-add]');
           if (add) addRow(add.getAttribute('data-add'), null);
+          if (e.target.closest('[data-addq]')) addQRow(null);
         });
         box.querySelector('#jdClear').addEventListener('click', () => {
           box.querySelector('#jJd').value = '';
@@ -261,8 +330,11 @@
               name: name,
               department: box.querySelector('#jDept').value.trim(),
               channel: box.querySelector('#jChannel').value,
+              channelCost: Math.max(0, Number(box.querySelector('#jChannelCost').value) || 0),
+              headcount: Math.max(1, Math.floor(Number(box.querySelector('#jHeadcount').value) || 1)),
               jd: box.querySelector('#jJd').value,
-              rules: { must: collect('must'), plus: collect('plus'), exclude: collect('exclude') }
+              rules: { must: collect('must'), plus: collect('plus'), exclude: collect('exclude') },
+              interviewQuestions: collectQ()
             };
             if (job) HR.data.updateJob(job.id, payload);
             else HR.data.addJob(payload);

@@ -22,6 +22,15 @@
       // 设置页维护的自定义同义词：每行一组
       if (!Array.isArray(raw.synonyms)) raw.synonyms = [];
       raw.synonyms = raw.synonyms.filter((s) => typeof s === 'string' && s.trim());
+      /* 快捷话术模板（设置页维护）：每条一个字符串 */
+      if (!Array.isArray(raw.followUpTemplates)) raw.followUpTemplates = [];
+      raw.followUpTemplates = raw.followUpTemplates.filter((s) => typeof s === 'string' && s.trim());
+      /* 大模型配置：新字段必须同时登记在 lib/store.js 的白名单里，否则不会被写进 data.json */
+      if (!raw.aiConfig || typeof raw.aiConfig !== 'object') raw.aiConfig = {};
+      raw.aiConfig = Object.assign(
+        { baseUrl: 'https://api.openai.com/v1', apiKey: '', model: 'gpt-4o-mini' },
+        raw.aiConfig
+      );
       raw.jobs.forEach((j) => {
         j.rules = j.rules || {};
         ['must', 'plus', 'exclude'].forEach((k) => {
@@ -33,11 +42,28 @@
         j.rules.plus = j.rules.plus.map((r) => (typeof r === 'string' ? { text: r } : { text: (r && r.text) || '' }));
         j.rules.exclude = j.rules.exclude.map((r) => (typeof r === 'string' ? { text: r } : { text: (r && r.text) || '' }));
         if (typeof j.archived !== 'boolean') j.archived = !!j.archived;
+        /* 渠道投入费用（渠道 ROI 用）与招聘人数（完成率用） */
+        if (typeof j.channelCost !== 'number') j.channelCost = Number(j.channelCost) || 0;
+        if (typeof j.headcount !== 'number' || j.headcount < 1) j.headcount = Number(j.headcount) || 1;
+        /* 结构化面试题库：按轮次维护题目与 5/3/1 分锚点 */
+        if (!Array.isArray(j.interviewQuestions)) j.interviewQuestions = [];
+        j.interviewQuestions = j.interviewQuestions
+          .map((q) => ({
+            id: (q && q.id) || util.uid('q'),
+            round: (q && q.round) || 'HR 面',
+            question: (q && q.question) || '',
+            anchor5: (q && q.anchor5) || '',
+            anchor3: (q && q.anchor3) || '',
+            anchor1: (q && q.anchor1) || ''
+          }))
+          .filter((q) => q.question.trim());
       });
       raw.candidates.forEach((r) => {
         if (!Array.isArray(r.tags)) r.tags = [];
         if (typeof r.inTalentPool !== 'boolean') r.inTalentPool = !!r.inTalentPool;
         if (!r.createdAt) r.createdAt = util.now();
+        /* 大模型结构化解析结果（功能 1）：未解析时保持 null */
+        if (r.aiProfile && typeof r.aiProfile !== 'object') r.aiProfile = null;
         // 简历正文统一为 text：导入解析、打分调用、详情展示、演示数据都用这个字段名。
         // 中途曾短暂用过 resumeText，这里做一次兼容迁移 —— 两种字段名并存会导致
         // 「初筛展开看不到原文」「人才库匹配恒为空」「IDF 语料读不到正文」等问题。
@@ -51,6 +77,20 @@
         if (!a.createdAt) a.createdAt = util.now();
         if (!a.lastFollowUpAt) a.lastFollowUpAt = a.createdAt;
         if (!a.status || !HR.STATUS[a.status]) a.status = 'pending_screen';
+        /* Offer 闭环（功能 3）：未发 offer 时为 null */
+        if (a.offer && typeof a.offer === 'object') a.offer = normalizeOffer(a.offer);
+        else a.offer = null;
+        /* 入职材料清单：未入职时为 null，入职时由 ensureChecklist 自动生成 */
+        if (!Array.isArray(a.onboardChecklist)) a.onboardChecklist = null;
+        /* 跟进记录扩展为 {time,type,note,nextDate}，老数据补默认类型 */
+        a.followUps.forEach((f) => {
+          if (!f.type || !HR.FOLLOWUP_TYPES[f.type]) f.type = 'wechat';
+          if (typeof f.nextDate !== 'string') f.nextDate = '';
+        });
+        /* 各阶段首次到达时间：招聘周期统计用，老数据留空 */
+        ['screenedAt', 'attendedAt', 'offeredAt', 'hiredAt'].forEach((k) => {
+          if (typeof a[k] !== 'string') a[k] = '';
+        });
       });
     },
 
@@ -212,7 +252,13 @@
         lastFollowUpAt: util.now(),
         nextFollowUpAt: '',
         followUps: [],
-        interviews: []
+        interviews: [],
+        offer: null,
+        onboardChecklist: null,
+        screenedAt: '',
+        attendedAt: '',
+        offeredAt: '',
+        hiredAt: ''
       };
       this.raw.applications.push(a);
       applyFlags(a);
@@ -229,14 +275,67 @@
       return a;
     },
 
-    addFollowUp(appId, note, nextDate) {
+    /**
+     * 写跟进记录
+     * @param {string} type phone / wechat / email / onsite，缺省微信
+     */
+    addFollowUp(appId, note, nextDate, type) {
       const a = this.application(appId);
       if (!a) return null;
       a.followUps = a.followUps || [];
-      a.followUps.push({ time: util.now(), note: String(note || '').trim() });
+      a.followUps.push({
+        time: util.now(),
+        type: HR.FOLLOWUP_TYPES[type] ? type : 'wechat',
+        note: String(note || '').trim(),
+        nextDate: nextDate || ''
+      });
       a.lastFollowUpAt = util.now();
       if (nextDate !== undefined) a.nextFollowUpAt = nextDate || '';
       return a;
+    },
+
+    /* ---------- Offer 闭环 ---------- */
+    /** 读取 offer（未创建时返回一份默认结构，便于表单直接绑定） */
+    getOffer(appId) {
+      const a = this.application(appId);
+      if (!a) return null;
+      return normalizeOffer(a.offer || {});
+    },
+
+    /** 保存 offer 表单：patch 合并写入并立即返回 */
+    saveOffer(appId, patch) {
+      const a = this.application(appId);
+      if (!a) return null;
+      a.offer = normalizeOffer(Object.assign({}, a.offer || {}, patch || {}));
+      return a.offer;
+    },
+
+    /** 追加一条谈判记录 */
+    addNegotiation(appId, note) {
+      const a = this.application(appId);
+      if (!a) return null;
+      a.offer = normalizeOffer(a.offer || {});
+      const t = String(note || '').trim();
+      if (t) a.offer.negotiationNotes.push({ time: util.now(), note: t });
+      return a.offer;
+    },
+
+    /* ---------- 入职材料清单 ---------- */
+    toggleChecklistItem(appId, key) {
+      const a = this.application(appId);
+      if (!a || !Array.isArray(a.onboardChecklist)) return null;
+      const item = a.onboardChecklist.find((x) => x.key === key);
+      if (item) item.done = !item.done;
+      return a.onboardChecklist;
+    },
+
+    /* ---------- 跟进提醒（功能 3）已读标记 ---------- */
+    markReminderDone(appId, key) {
+      const a = this.application(appId);
+      if (!a) return null;
+      a.offer = normalizeOffer(a.offer || {});
+      if (a.offer.remindersDone.indexOf(key) < 0) a.offer.remindersDone.push(key);
+      return a.offer;
     },
 
     isOverdue(app, days) {
@@ -256,6 +355,40 @@
     if (['interviewing', 'offered', 'hired'].indexOf(s) >= 0) a.attended = true;
     if (['offered', 'hired'].indexOf(s) >= 0) a.offered = true;
     if (s === 'hired') a.hired = true;
+    stampStages(a);
+    ensureChecklist(a);
+  }
+
+  /* 记录各阶段「首次」到达时间：招聘周期统计（平均初筛耗时 / 面试到 offer 天数）据此计算。
+     只在首次到达时写入，重复拖动卡片不会刷新时间戳。 */
+  function stampStages(a) {
+    const t = util.now();
+    if (a.passedScreen && !a.screenedAt) a.screenedAt = t;
+    if (a.attended && !a.attendedAt) a.attendedAt = t;
+    if (a.offered && !a.offeredAt) a.offeredAt = t;
+    if (a.hired && !a.hiredAt) a.hiredAt = t;
+  }
+
+  /* 状态首次切到「已入职」时自动生成入职材料清单 */
+  function ensureChecklist(a) {
+    if (a.status !== 'hired') return;
+    if (Array.isArray(a.onboardChecklist)) return;
+    a.onboardChecklist = (HR.ONBOARD_CHECKLIST || []).map((x) => ({ key: x.key, label: x.label, done: false }));
+  }
+
+  /* 统一补齐 offer 结构，缺字段不会导致表单炸掉 */
+  function normalizeOffer(o) {
+    const src = o && typeof o === 'object' ? o : {};
+    return {
+      salary: src.salary || '',
+      position: src.position || '',
+      offerDate: src.offerDate || '',
+      expectedOnboard: src.expectedOnboard || '',
+      candidateFeedback: src.candidateFeedback || '待反馈',
+      negotiationNotes: Array.isArray(src.negotiationNotes) ? src.negotiationNotes : [],
+      competitorOffer: src.competitorOffer || '',
+      remindersDone: Array.isArray(src.remindersDone) ? src.remindersDone : []
+    };
   }
 
   data.applyFlags = applyFlags;
@@ -266,6 +399,8 @@
   /** 清空全部数据 */
   data.clearAll = function () {
     this.raw = { version: 1, jobs: [], candidates: [], applications: [], updatedAt: util.now() };
+    // 补齐 aiConfig / 话术模板 / 同义词等顶层默认值，避免清空后设置页读到 undefined
+    this.normalize();
   };
 
   HR.data = data;

@@ -43,6 +43,9 @@
     const app = HR.data.application(state.appId);
     const r = HR.data.resume(app.resumeId);
     const j = HR.data.job(app.jobId);
+    const qBank = (j && j.interviewQuestions) || [];
+    const qMap = {};
+    qBank.forEach((q) => (qMap[q.id] = q));
     const history = (app.interviews || []).slice().reverse();
 
     el.innerHTML =
@@ -81,6 +84,8 @@
           '<span class="rating-val" data-val="' + c.key + '">3</span></div>'
       ).join('') +
       '<div class="toolbar" style="margin-top:6px"><span class="muted small">平均分</span><strong id="ivAvg">3.0</strong><span class="muted small">/ 5</span></div>' +
+      '<div class="field" style="margin-top:10px"><label>结构化题库 <span class="muted small">（按所选轮次，来自岗位题库）</span></label>' +
+      '<div id="ivQbox"></div></div>' +
       '<div class="field" style="margin-top:10px"><label>综合结论</label><div class="radio-group">' +
       CONCLUSIONS.map(
         (c, i) =>
@@ -103,6 +108,19 @@
                 '<span class="muted small">' + util.fmtDateTime(iv.time) + '</span></div>' +
                 '<div class="small" style="margin:4px 0">面试官：' + esc(iv.interviewer || '—') + ' · 平均分 <strong>' + esc(iv.average) + '</strong>/5 · 结论 <span class="tag blue">' + esc(iv.conclusion) + '</span></div>' +
                 CRITERIA.map((c) => '<span class="tag">' + esc(c.label) + ' ' + esc((iv.scores || {})[c.key] || '-') + '</span>').join('') +
+                (iv.questionScores && iv.questionScores.length
+                  ? '<div class="small" style="margin-top:6px"><strong>题库均分 ' + esc(iv.questionAvg || '—') + '/5</strong></div>' +
+                    iv.questionScores
+                      .map((q) => {
+                        const qq = qMap[q.qid];
+                        return '<div class="small" style="margin-left:4px">· ' +
+                          (qq ? esc(util.truncate(qq.question, 26)) : '（题目已删除）') +
+                          ' <span class="tag blue">' + esc(q.score) + ' 分</span>' +
+                          (q.note ? ' <span class="muted">' + esc(q.note) + '</span>' : '') +
+                          '</div>';
+                      })
+                      .join('')
+                  : '') +
                 (iv.pros ? '<div class="small" style="margin-top:6px"><strong>优点：</strong>' + esc(iv.pros) + '</div>' : '') +
                 (iv.cons ? '<div class="small"><strong>不足：</strong>' + esc(iv.cons) + '</div>' : '') +
                 '</div>'
@@ -146,6 +164,62 @@
     });
     paintStars();
 
+    /* ---------- 结构化题库（功能 5）----------
+       按所选轮次展示岗位题库，面试官逐题打 1-5 分，自动算平均分。 */
+    const qScoreState = {};
+    function renderQbox() {
+      const round = form.querySelector('#ivRound').value;
+      const list = qBank.filter((q) => q.round === round);
+      const box = form.querySelector('#ivQbox');
+      Object.keys(qScoreState).forEach((k) => delete qScoreState[k]);
+      if (!list.length) {
+        box.innerHTML = '<div class="muted small">该轮次还没有配置题目，可在「岗位管理 → 编辑岗位 → 面试题库」里添加</div>';
+        return;
+      }
+      box.innerHTML = list
+        .map((q) => {
+          qScoreState[q.id] = 3;
+          return (
+            '<div class="q-score">' +
+            '<div class="q-title">' + esc(q.question) + '</div>' +
+            '<div class="q-anchors">' +
+            (q.anchor5 ? '<span class="tag green">5 分：' + esc(q.anchor5) + '</span>' : '') +
+            (q.anchor3 ? '<span class="tag yellow">3 分：' + esc(q.anchor3) + '</span>' : '') +
+            (q.anchor1 ? '<span class="tag red">1 分：' + esc(q.anchor1) + '</span>' : '') +
+            '</div>' +
+            '<div class="rating-row"><span class="rating-label">本题评分</span>' +
+            '<span class="stars" data-q="' + esc(q.id) + '">' +
+            [1, 2, 3, 4, 5].map((n) => '<button type="button" class="star on" data-n="' + n + '">★</button>').join('') +
+            '</span><span class="rating-val" data-qval="' + esc(q.id) + '">3</span></div>' +
+            '<input class="input q-note" data-qnote="' + esc(q.id) + '" placeholder="评语 / 追问记录（可选）" />' +
+            '</div>'
+          );
+        })
+        .join('');
+      box.querySelectorAll('.stars').forEach((g) =>
+        g.addEventListener('click', (e) => {
+          const st = e.target.closest('.star');
+          if (!st) return;
+          qScoreState[g.getAttribute('data-q')] = Number(st.getAttribute('data-n'));
+          paintQ();
+        })
+      );
+      paintQ();
+    }
+    function paintQ() {
+      const box = form.querySelector('#ivQbox');
+      box.querySelectorAll('.stars').forEach((g) => {
+        const qid = g.getAttribute('data-q');
+        [...g.querySelectorAll('.star')].forEach((st) =>
+          st.classList.toggle('on', Number(st.getAttribute('data-n')) <= qScoreState[qid])
+        );
+        const val = box.querySelector('[data-qval="' + qid + '"]');
+        if (val) val.textContent = String(qScoreState[qid]);
+      });
+    }
+    renderQbox();
+    form.querySelector('#ivRound').addEventListener('change', renderQbox);
+
     /* 综合结论：彩色单选按钮组 */
     const chips = [...form.querySelectorAll('.radio-chip')];
     function paintChips() {
@@ -161,6 +235,14 @@
       const scores = Object.assign({}, scoreState);
       const interviewer = form.querySelector('#ivName').value.trim();
       const conclusionEl = form.querySelector('input[name="ivConclusion"]:checked');
+      /* 题库逐题得分（只取当前轮次的题目） */
+      const questionScores = Object.keys(qScoreState).map((qid) => {
+        const noteEl = form.querySelector('[data-qnote="' + qid + '"]');
+        return { qid: qid, score: qScoreState[qid], note: noteEl ? noteEl.value.trim() : '' };
+      });
+      const qAvg = questionScores.length
+        ? (questionScores.reduce((n, q) => n + q.score, 0) / questionScores.length).toFixed(1)
+        : '';
       const record = {
         id: util.uid('iv'),
         round: form.querySelector('#ivRound').value,
@@ -170,6 +252,8 @@
         conclusion: conclusionEl ? conclusionEl.value : '待定',
         pros: form.querySelector('#ivPros').value.trim(),
         cons: form.querySelector('#ivCons').value.trim(),
+        questionScores: questionScores,
+        questionAvg: qAvg,
         time: util.now()
       };
       if (!interviewer) {

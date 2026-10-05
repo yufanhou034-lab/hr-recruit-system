@@ -1059,3 +1059,122 @@ body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; 
   .sidebar .sb-nav .tab-btn { justify-content: center; padding: 0; }
   .sidebar .sb-nav .tab-badge { position: absolute; top: 2px; right: 5px; margin: 0; min-width: 14px; line-height: 14px; font-size: 9px; padding: 0 4px; }
 }
+
+/* =====================================================================
+   33. 功能增强：AI 画像 / 整体漏斗 / Offer / 话术 / 题库 / 人才库推荐
+   ===================================================================== */
+
+/* ---- AI 画像列与详情卡 ---- */
+.ai-cell { max-width: 190px; }
+.ai-summary {
+  display: inline-block; max-width: 180px; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; vertical-align: middle; font-size: 12px; color: var(--text-2);
+}
+.risk-flag { display: inline-flex; color: var(--danger); vertical-align: -2px; }
+.ai-card {
+  border: 1px solid var(--line); border-left: 3px solid var(--primary);
+  border-radius: var(--radius-sm); background: var(--panel-hover);
+  padding: 10px 12px; margin-bottom: 10px;
+}
+.ai-card-head { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 12.5px; margin-bottom: 8px; color: var(--text); }
+.ai-summary-big { font-size: 12.5px; font-weight: 600; color: var(--primary); margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
+.ai-risk { margin: 6px 0 10px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--danger); }
+.ai-risk > div { display: flex; align-items: center; gap: 6px; }
+.ai-progress { margin-top: 12px; }
+.ai-progress-txt { font-size: 12px; color: var(--text-2); margin-bottom: 6px; }
+.ai-progress .bar-track { height: 8px; }
+.ai-progress .bar-fill { height: 100%; width: 0; transition: width .25s ease; }
+
+/* ---- 仪表盘：整体漏斗 / 周期表 / ROI ---- */
+.tfunnel-card { grid-column: span 12; }
+.cycle-card { grid-column: span 7; }
+.roi-card { grid-column: span 5; }
+.tfunnel { display: flex; flex-direction: column; gap: 8px; }
+.tf-row { display: grid; grid-template-columns: 74px 1fr 156px; align-items: center; gap: 10px; }
+.tf-label { font-size: 12.5px; color: var(--text-2); text-align: right; }
+.tf-bar-wrap { background: var(--line-2); border-radius: 6px; overflow: hidden; }
+.tf-bar {
+  height: 26px; line-height: 26px; border-radius: 6px; color: #fff;
+  font-size: 12px; font-weight: 600; text-align: center; min-width: 46px;
+  transition: width .3s ease;
+}
+.tf-1 { background: var(--funnel-1); }
+.tf-2 { background: var(--funnel-2); }
+.tf-3 { background: var(--funnel-3); }
+.tf-4 { background: var(--funnel-4); }
+.tf-5 { background: var(--funnel-5); }
+.tf-meta { font-size: 11.5px; color: var(--text-2); white-space: nowrap; }
+/* 窄窗口下岗位名不要逐字竖排 */
+.cycle-card table th:first-child, .cycle-card table td:first-child { white-space: nowrap; }
+.tf-row.low .tf-label { color: var(--danger); font-weight: 600; }
+.tf-row.low .tf-bar { background: var(--danger); }
+.tf-tip {
+  margin-top: 10px; padding: 8px 12px; border-radius: var(--radius-sm);
+  background: var(--danger-light); color: var(--danger); font-size: 12.5px;
+  display: flex; align-items: center; gap: 6px;
+}
+
+/* ---- 看板：offer 倒计时 / 入职材料 ---- */
+.kcard-strip {
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  width: 100%; margin: 6px 0 2px; padding: 4px 8px;
+  font-family: inherit; font-size: 11.5px; cursor: pointer;
+  background: var(--line-2); color: var(--text-2);
+  border: none; border-radius: 6px;
+  transition: background .15s ease, color .15s ease;
+}
+.kcard-strip:hover { background: var(--primary-light); color: var(--primary); }
+.kcard-strip.overdue-strip { background: var(--danger-light); color: var(--danger); font-weight: 600; }
+
+/* ---- Offer 提醒条 ---- */
+.rem-banner { border-left: 4px solid var(--warning); background: var(--warning-light); }
+.rem-head { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 12.5px; color: #b45309; margin-bottom: 8px; }
+.rem-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.rem-list li { display: flex; align-items: center; gap: 10px; font-size: 12.5px; }
+.rem-list .rem-text { flex: 1; cursor: pointer; }
+.rem-list .rem-text:hover { text-decoration: underline; }
+
+/* ---- 跟进类型标签 ---- */
+.fu-type { display: inline-flex; align-items: center; gap: 3px; color: var(--primary); }
+
+/* ---- 入职材料清单 ---- */
+.checklist { display: flex; flex-direction: column; gap: 6px; }
+.cl-item {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  font-size: 13px; cursor: pointer;
+}
+.cl-item.done { background: var(--success-light); border-color: transparent; color: var(--on-success, #047857); }
+
+/* ---- 面试题库 ---- */
+.q-row { flex-wrap: wrap; }
+.q-row .q-round { width: 96px; flex: none; }
+.q-row .q-q { flex: 1 1 100%; }
+.q-row .q-a5, .q-row .q-a3, .q-row .q-a1 { flex: 1 1 calc(33% - 8px); }
+.q-score { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 10px; }
+.q-title { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+.q-anchors { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.q-anchors .tag { white-space: normal; }
+.q-score .q-note { margin-top: 4px; }
+
+/* ---- 人才库推荐横幅 ---- */
+.talent-banner { display: flex; align-items: center; gap: 12px; border-left: 4px solid var(--primary); background: var(--primary-light); }
+.talent-banner .tb-ico { display: flex; color: var(--primary); flex: none; }
+.talent-banner .tb-text { flex: 1; min-width: 0; }
+
+/* ---- 可点击的待跟进横幅 ---- */
+.alert-banner.clickable { cursor: pointer; }
+.alert-banner.clickable .ab-ico { display: flex; color: var(--danger); }
+
+/* ---- 深色模式下的补充覆盖 ---- */
+[data-theme="dark"] .rem-head { color: var(--on-warning); }
+[data-theme="dark"] .tf-tip { color: var(--on-danger); }
+[data-theme="dark"] .kcard-strip { background: #262b3a; color: var(--muted); }
+[data-theme="dark"] .kcard-strip:hover { background: rgba(79, 110, 247, .2); color: var(--on-blue); }
+[data-theme="dark"] .talent-banner { background: rgba(79, 110, 247, .12); }
+[data-theme="dark"] .ai-card { background: var(--panel-hover); }
+
+/* ---- 窄窗口：新卡片通栏 ---- */
+@media (max-width: 1000px) {
+  .tfunnel-card, .cycle-card, .roi-card { grid-column: span 12; }
+}

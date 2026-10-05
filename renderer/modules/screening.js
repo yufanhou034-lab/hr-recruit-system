@@ -33,6 +33,8 @@
     const pendingAdd = poolResumes.filter((r) => !HR.data.appOf(r.id, job.id)).length;
     const scored = apps.filter((a) => a.score && !isStaleScore(a));
     const unscored = apps.filter((a) => !a.score || isStaleScore(a));
+    /* 功能 6：人才库自动激活 —— 与当前岗位匹配度 ≥ 60 且尚未投递的人 */
+    const tMatches = talentMatches(job);
 
     const sorted = apps.slice().sort((a, b) => {
       const sa = a.score ? a.score.composite : -Infinity;
@@ -61,6 +63,7 @@
       '</div>' +
       '<div class="toolbar"><span class="muted small">JD 正文：' + (job.jd ? esc(util.truncate(job.jd.replace(/\s+/g, ' '), 70)) : '<span class="text-red">未填写，匹配度将按 0 计算</span>') + '</span></div>' +
       '</div>' +
+      talentBannerHtml(job, tMatches) +
       (sorted.length
         ? '<div class="table-wrap vt-wrap"><table><thead><tr>' +
           '<th style="width:52px">排名</th><th>姓名</th><th>学校</th><th class="mono">规则分</th>' +
@@ -79,6 +82,8 @@
     });
     const addBtn = el.querySelector('#scAdd');
     if (addBtn) addBtn.addEventListener('click', () => addFromPool(job.id));
+    const tAddBtn = el.querySelector('#scTalentAdd');
+    if (tAddBtn) tAddBtn.addEventListener('click', () => addTalentMatches(job, tMatches));
     el.querySelector('#scRun').addEventListener('click', () => runScoring(job));
     el.querySelector('#scPass').addEventListener('click', () => batchToInterview(job.id));
     el.querySelector('#scReject').addEventListener('click', () => batchToTalent(job.id));
@@ -217,6 +222,48 @@
       line('加分项命中（每条 +10）', s.hitPlus, (p) => row(p, 10, 'blue')) +
       line('排除项命中（直接淘汰）', s.excludeHits, (x) => row(x, 0, 'red'))
     );
+  }
+
+  /* ---------- 功能 6：人才库自动激活 ---------- */
+  /** 人才库里与岗位匹配度 ≥ 60、且尚未投递该岗位的人 */
+  function talentMatches(job) {
+    return HR.data.raw.candidates
+      .filter((r) => r.inTalentPool && r.text && !HR.data.appOf(r.id, job.id))
+      .map((r) => ({ r: r, s: HR.scoring.screenResume(r.text, job.rules, job.jd || '') }))
+      .filter((x) => !x.s.eliminated && x.s.composite >= 60)
+      .sort((a, b) => b.s.composite - a.s.composite);
+  }
+
+  function talentBannerHtml(job, list) {
+    if (!list.length) return '';
+    const names = list.slice(0, 6).map((x) => esc(x.r.name)).join('、') + (list.length > 6 ? ' 等' : '');
+    return (
+      '<div class="card talent-banner">' +
+      '<span class="tb-ico">' + HR.ico('user-plus', 18) + '</span>' +
+      '<div class="tb-text"><strong>从人才库推荐 ' + list.length + ' 人</strong>' +
+      '<div class="muted small">' + names + ' —— 与「' + esc(job.name) + '」匹配度 ≥ 60，可一键加入投递</div></div>' +
+      '<button class="btn" id="scTalentAdd">一键加入投递</button>' +
+      '</div>'
+    );
+  }
+
+  async function addTalentMatches(job, list) {
+    if (!list.length) return;
+    const ok = await HR.ui.confirm(
+      '人才库推荐',
+      '把 ' + list.length + ' 位人才库候选人加入「' + job.name + '」的待初筛？',
+      '一键加入',
+      ''
+    );
+    if (!ok) return;
+    list.forEach((x) => {
+      const a = HR.data.addApplication({ resumeId: x.r.id, jobId: job.id, status: 'pending_screen' });
+      a.score = x.s; // 预填刚算出的分数，避免重复打分
+      if (!x.s.eliminated && x.s.verdict !== '不推荐') a.passedScreen = true;
+    });
+    await HR.data.persist();
+    HR.refresh();
+    HR.ui.toast('已从人才库加入 ' + list.length + ' 位候选人', 'success');
   }
 
   async function addFromPool(jobId) {

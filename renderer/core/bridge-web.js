@@ -234,6 +234,59 @@
 
     saveTextFile: (opts) => downloadText(opts),
 
+    /* 网页版没有主进程，只能直连接口。若对方未开放 CORS，浏览器会拦截，
+       此时返回明确错误提示，而不是静默失败。 */
+    aiChat: async (opts) => {
+      const o = opts || {};
+      const base = String(o.baseUrl || '').trim().replace(/\/+$/, '');
+      if (!base) return { ok: false, error: '未配置 API Base URL' };
+      if (!o.apiKey) return { ok: false, error: '未配置 API Key' };
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 30000);
+      try {
+        const payload = {
+          model: o.model || 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: String(o.system || '') },
+            { role: 'user', content: String(o.user || '') }
+          ],
+          temperature: o.temperature == null ? 0.2 : o.temperature
+        };
+        if (o.jsonMode) payload.response_format = { type: 'json_object' };
+        const res = await fetch(base + '/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + o.apiKey },
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        });
+        const raw = await res.text();
+        let data = null;
+        try {
+          data = JSON.parse(raw);
+        } catch (err) {
+          data = null;
+        }
+        if (!res.ok) {
+          const msg =
+            (data && data.error && (data.error.message || data.error.code)) ||
+            (raw ? raw.slice(0, 200) : 'HTTP ' + res.status);
+          return { ok: false, error: String(msg) };
+        }
+        const content =
+          data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+        if (!content) return { ok: false, error: '接口返回内容为空' };
+        return { ok: true, text: String(content) };
+      } catch (err) {
+        const msg =
+          err && err.name === 'AbortError'
+            ? '请求超时（30 秒未响应）'
+            : (err && err.message) || '请求失败（可能是对方接口未开放跨域 CORS）';
+        return { ok: false, error: msg };
+      } finally {
+        clearTimeout(timer);
+      }
+    },
+
     getDataPath: () => Promise.resolve({ dir: '浏览器本地存储', file: 'IndexedDB · ' + DB_NAME }),
 
     exportData: async () => {

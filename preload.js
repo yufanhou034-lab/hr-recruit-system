@@ -36,6 +36,9 @@ const api = {
   /* ---------- 其它文件读写 ---------- */
   saveTextFile: (opts) => ipcRenderer.invoke('file:saveText', opts),
 
+  /* ---------- 大模型调用（走主进程，避开 CSP / CORS） ---------- */
+  aiChat: (opts) => ipcRenderer.invoke('ai:chat', opts),
+
   /* ---------- 系统集成 ---------- */
   openPath: (p) => ipcRenderer.invoke('shell:openPath', p),
   showItemInFolder: (p) => ipcRenderer.invoke('shell:showItem', p),

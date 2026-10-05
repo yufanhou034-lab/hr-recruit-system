@@ -27,6 +27,31 @@
 
   HR.SOURCES = ['BOSS直聘', '猎聘', '内推', '校招', '其他'];
 
+  /* 跟进方式：类型 → 文案 + 图标名（图标见 core/icons.js） */
+  HR.FOLLOWUP_TYPES = {
+    phone: { label: '电话', icon: 'phone' },
+    wechat: { label: '微信', icon: 'message-circle' },
+    email: { label: '邮件', icon: 'mail' },
+    onsite: { label: '面谈', icon: 'users' }
+  };
+  HR.FOLLOWUP_TYPE_ORDER = ['phone', 'wechat', 'email', 'onsite'];
+
+  /* 入职材料 checklist 模板：状态切到「已入职」时自动生成到 application.onboardChecklist */
+  HR.ONBOARD_CHECKLIST = [
+    { key: 'idCard', label: '身份证复印件' },
+    { key: 'eduCert', label: '学历证明' },
+    { key: 'resume', label: '离职证明' },
+    { key: 'medical', label: '体检报告' },
+    { key: 'equipment', label: '办公设备准备' },
+    { key: 'firstDay', label: '首日安排通知' }
+  ];
+
+  /* 候选人反馈下拉选项（Offer 详情用） */
+  HR.OFFER_FEEDBACK = ['待反馈', '已接受', '薪资不满意', '在等别家', '已拒绝', '已入职'];
+
+  /* 面试轮次（结构化题库与面试评估共用） */
+  HR.INTERVIEW_ROUNDS = ['HR 面', '业务面', '技术面', '终面'];
+
   function p2(n) {
     return n < 10 ? '0' + n : String(n);
   }
@@ -77,6 +102,28 @@
       const d = new Date(iso);
       if (isNaN(d.getTime())) return 0;
       return Math.floor((Date.now() - d.getTime()) / 86400000);
+    },
+    /* 把 'YYYY-MM-DD' 或 ISO 解析成「当天 0 点」的本地日期对象（避免 UTC 解析导致差半天） */
+    ymd(iso) {
+      const m = String(iso == null ? '' : iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+      const d = new Date(iso);
+      return isNaN(d.getTime()) ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    },
+    /** a → b 相差几天（b 晚于 a 为正），忽略时分秒 */
+    diffDays(aIso, bIso) {
+      const a = HR.util.ymd(aIso);
+      const b = HR.util.ymd(bIso);
+      if (!a || !b) return 0;
+      return Math.round((b - a) / 86400000);
+    },
+    /** 距今天还有几天：未来为正、已过为负、无日期为 null */
+    daysUntil(iso) {
+      const b = HR.util.ymd(iso);
+      if (!b) return null;
+      const t = new Date();
+      const today = new Date(t.getFullYear(), t.getMonth(), t.getDate());
+      return Math.round((b - today) / 86400000);
     },
     maskPhone(phone) {
       const p = String(phone || '');

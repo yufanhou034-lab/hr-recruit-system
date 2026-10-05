@@ -9,6 +9,7 @@
   function render(el) {
     const raw = HR.data.raw;
     const isWeb = window.api.__env === 'web';
+    const cfg = HR.ai.config();
     const storageCard = isWeb
       ? '<div class="card"><div class="card-head"><h3>' + HR.ico('folder') + ' 数据存储位置</h3></div>' +
         '<div class="muted small" id="stPath" style="word-break:break-all;margin-bottom:8px">加载中…</div>' +
@@ -24,6 +25,17 @@
 
     el.innerHTML =
       '<div class="grid-2">' +
+      '<div class="card"><div class="card-head"><h3>' + HR.ico('sparkles') + ' AI 配置</h3></div>' +
+      '<div class="muted small" style="margin-bottom:8px">用于「简历智能结构化解析」。兼容任意 OpenAI 格式接口（OpenAI / DeepSeek / 通义 / 本地 Ollama 等），' +
+      '填对应的 Base URL、Key 与模型名即可。' + (isWeb ? '网页版直连接口，若对方未开放跨域（CORS）会请求失败。' : '') + '</div>' +
+      '<div class="field"><label>API Base URL</label><input class="input" id="aiBase" value="' + esc(cfg.baseUrl) + '" placeholder="https://api.openai.com/v1" /></div>' +
+      '<div class="field"><label>API Key</label><input class="input" id="aiKey" type="password" value="' + esc(cfg.apiKey) + '" placeholder="sk-..." autocomplete="off" /></div>' +
+      '<div class="field"><label>模型名</label><input class="input" id="aiModel" value="' + esc(cfg.model) + '" placeholder="gpt-4o-mini" /></div>' +
+      '<div class="toolbar"><button class="btn" id="aiSave">保存配置</button>' +
+      '<button class="btn ghost" id="aiTest">' + HR.ico('refresh-cw') + ' 测试连接</button>' +
+      '<span class="muted small" id="aiStatus"></span></div>' +
+      '</div>' +
+
       '<div class="card"><div class="card-head"><h3>' + HR.ico('file-text') + ' 数据备份</h3></div>' +
       '<div class="field"><label>导出全部数据</label>' +
       '<div class="muted small" style="margin-bottom:6px">把当前 data.json 完整复制一份到你选择的位置' + (isWeb ? '（直接下载）。' : '（弹出系统保存对话框）。') + '换电脑时带过去即可。</div>' +
@@ -58,6 +70,16 @@
       HR.scoring.SYNONYM_GROUPS.map((g) => '<div style="margin-top:2px">· ' + util.esc(g.join(' / ')) + '</div>').join('') +
       '</div></div>' +
 
+      '<div class="card"><div class="card-head"><h3>' + HR.ico('message-circle') + ' 快捷话术模板</h3></div>' +
+      '<div class="muted small" style="margin-bottom:6px">每行一条。在跟进看板写跟进记录时可以一键插入，' +
+      '例如：<b>您好，简历已收到，方便今天下午电话沟通吗？</b></div>' +
+      '<div class="field"><textarea class="textarea" id="stTemplates" style="min-height:120px" ' +
+      'placeholder="每行一条话术，例如：&#10;您好，简历已收到，方便今天下午电话沟通吗？&#10;面试时间定在周三下午两点，请确认是否方便">' +
+      util.esc((raw.followUpTemplates || []).join('\n')) + '</textarea></div>' +
+      '<button class="btn" id="stTplSave">保存话术</button>' +
+      '<span class="muted small" style="margin-left:8px">共 ' + (raw.followUpTemplates || []).length + ' 条已保存</span>' +
+      '</div>' +
+
       '<div class="card"><div class="card-head"><h3>' + HR.ico('alert-triangle') + ' 危险操作</h3></div>' +
       '<div class="muted small" style="margin-bottom:8px">清空后所有岗位、简历、投递与面试记录都会被删除，且无法恢复。建议先导出备份。</div>' +
       '<button class="btn danger" id="stClear">清空全部数据</button>' +
@@ -78,6 +100,48 @@
     el.querySelector('#stExport').addEventListener('click', exportDataFile);
     el.querySelector('#stImport').addEventListener('click', importDataFile);
     el.querySelector('#stClear').addEventListener('click', clearAll);
+
+    /* AI 配置：保存 / 测试连接 */
+    const collectAi = () => ({
+      baseUrl: el.querySelector('#aiBase').value.trim() || 'https://api.openai.com/v1',
+      apiKey: el.querySelector('#aiKey').value.trim(),
+      model: el.querySelector('#aiModel').value.trim() || 'gpt-4o-mini'
+    });
+    el.querySelector('#aiSave').addEventListener('click', () => {
+      HR.data.raw.aiConfig = collectAi();
+      HR.data.normalize();
+      HR.data.persistNow();
+      HR.ui.toast('AI 配置已保存', 'success');
+    });
+    el.querySelector('#aiTest').addEventListener('click', async () => {
+      // 先写回当前输入，避免「改了没保存就测试」的困惑
+      HR.data.raw.aiConfig = collectAi();
+      HR.data.persistNow();
+      const btn = el.querySelector('#aiTest');
+      const status = el.querySelector('#aiStatus');
+      btn.disabled = true;
+      status.style.color = '';
+      status.textContent = '测试中…';
+      const res = await HR.ai.testConnection();
+      btn.disabled = false;
+      status.style.color = res.ok ? 'var(--success)' : 'var(--danger)';
+      status.textContent = res.message;
+      HR.ui.toast(res.message, res.ok ? 'success' : 'error');
+    });
+
+    /* 快捷话术模板：保存 */
+    el.querySelector('#stTplSave').addEventListener('click', () => {
+      const lines = el
+        .querySelector('#stTemplates')
+        .value.split('\n')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      HR.data.raw.followUpTemplates = lines;
+      HR.data.normalize();
+      HR.data.persistNow();
+      HR.ui.toast('已保存 ' + lines.length + ' 条话术', 'success');
+      HR.refresh();
+    });
 
     /* 同义词词典：保存到 data.json，与内置词典叠加生效 */
     el.querySelector('#stSynSave').addEventListener('click', () => {

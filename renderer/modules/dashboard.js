@@ -283,13 +283,173 @@
       .sort((a, b) => util.daysSince(b.lastFollowUpAt) - util.daysSince(a.lastFollowUpAt));
   }
 
+  /* ================= 功能 2：整体漏斗 / 招聘周期 / 渠道 ROI ================= */
+  const avg = (arr) => (arr.length ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 10) / 10 : 0);
+
+  /* 整体漏斗 5 层：简历总数 → 初筛通过 → 面试到场 → 发 offer → 入职 */
+  function overallStages() {
+    const apps = HR.data.raw.applications;
+    return [
+      { name: '简历总数', count: apps.length },
+      { name: '初筛通过', count: apps.filter((a) => a.passedScreen).length },
+      { name: '面试到场', count: apps.filter((a) => a.attended).length },
+      { name: '发 offer', count: apps.filter((a) => a.offered).length },
+      { name: '入职', count: apps.filter((a) => a.hired).length }
+    ];
+  }
+
+  function overallFunnelHtml(stages) {
+    const total = stages[0].count;
+    if (!total) {
+      return HR.ui.empty(
+        'clipboard-check',
+        '还没有投递数据',
+        '导入简历、创建岗位，并把候选人加入「待初筛」后，这里会显示整体招聘漏斗'
+      );
+    }
+    // 找出相对上一层转化率最低的一环（跳过第一层），用于提示优化方向
+    let worst = null;
+    for (let i = 1; i < stages.length; i++) {
+      const prev = stages[i - 1].count;
+      if (!prev) continue;
+      const rate = Math.round((stages[i].count / prev) * 1000) / 10;
+      if (!worst || rate < worst.rate) {
+        worst = { i: i, rate: rate, name: stages[i].name, prevName: stages[i - 1].name };
+      }
+    }
+    const rows = stages
+      .map((s, i) => {
+        const vsTotal = Math.round((s.count / total) * 1000) / 10;
+        const vsPrev = i === 0 ? null : stages[i - 1].count ? Math.round((s.count / stages[i - 1].count) * 1000) / 10 : 0;
+        const w = Math.max(7, Math.round((s.count / total) * 100));
+        const low = worst && worst.i === i && worst.rate < 100;
+        return (
+          '<div class="tf-row' + (low ? ' low' : '') + '">' +
+          '<div class="tf-label">' + esc(s.name) + '</div>' +
+          '<div class="tf-bar-wrap"><div class="tf-bar tf-' + (i + 1) + '" style="width:' + w + '%">' + s.count + ' 人</div></div>' +
+          '<div class="tf-meta">' + (vsPrev === null ? '基数' : '环比 ' + vsPrev + '%') +
+          '<span class="muted"> · 占总 ' + vsTotal + '%</span></div>' +
+          '</div>'
+        );
+      })
+      .join('');
+    const tip =
+      worst && worst.rate < 100
+        ? '<div class="tf-tip">' + HR.ico('alert-triangle') + ' 「' + esc(worst.prevName) + ' → ' + esc(worst.name) +
+          '」转化率仅 <b>' + worst.rate + '%</b>，是全流程最低的一环，建议优化渠道或 JD</div>'
+        : '';
+    return '<div class="tfunnel">' + rows + '</div>' + tip;
+  }
+
+  /* 岗位招聘周期表 */
+  function cycleTableHtml() {
+    const jobs = HR.data.raw.jobs.filter((j) => !j.archived);
+    if (!jobs.length) {
+      return HR.ui.empty('briefcase', '还没有在招岗位', '创建岗位后，这里会统计每个岗位的招聘进度与平均耗时');
+    }
+    const rows = jobs.map((j) => {
+      const apps = HR.data.appsOfJob(j.id);
+      const screened = apps.filter((a) => a.screenedAt && a.createdAt);
+      const offered = apps.filter((a) => a.offeredAt && a.attendedAt);
+      const hired = apps.filter((a) => a.hired).length;
+      const hc = j.headcount || 1;
+      return {
+        j: j,
+        count: apps.length,
+        avgScreen: screened.length ? avg(screened.map((a) => util.diffDays(a.createdAt, a.screenedAt))) : null,
+        avgOffer: offered.length ? avg(offered.map((a) => util.diffDays(a.attendedAt, a.offeredAt))) : null,
+        hired: hired,
+        hc: hc,
+        rate: Math.min(100, Math.round((hired / hc) * 100))
+      };
+    });
+    return (
+      '<div class="table-wrap"><table><thead><tr>' +
+      '<th>岗位</th><th class="mono">招聘人数</th><th class="mono">简历数</th>' +
+      '<th class="mono">平均初筛耗时</th><th class="mono">面试→offer</th><th>当前状态</th><th>完成率</th>' +
+      '</tr></thead><tbody>' +
+      rows
+        .map((r, i) => {
+          const done = r.hired >= r.hc;
+          return (
+            '<tr class="' + (i % 2 ? 'alt' : '') + '">' +
+            '<td><strong>' + esc(r.j.name) + '</strong></td>' +
+            '<td class="mono">' + r.hc + '</td>' +
+            '<td class="mono">' + r.count + '</td>' +
+            '<td class="mono">' + (r.avgScreen === null ? '—' : r.avgScreen + ' 天') + '</td>' +
+            '<td class="mono">' + (r.avgOffer === null ? '—' : r.avgOffer + ' 天') + '</td>' +
+            '<td>' + (done ? '<span class="tag green">已完成</span>' : '<span class="tag blue">在招</span>') + '</td>' +
+            '<td><span class="bar-track" style="display:inline-block;width:76px;height:8px;vertical-align:middle">' +
+            '<span class="bar-fill" style="display:block;height:100%;width:' + r.rate + '%' + (done ? ';background:var(--success)' : '') + '"></span></span> ' +
+            '<span class="mono small">' + r.hired + '/' + r.hc + '（' + r.rate + '%）</span></td>' +
+            '</tr>'
+          );
+        })
+        .join('') +
+      '</tbody></table></div>'
+    );
+  }
+
+  /* 渠道 ROI：按候选人来源聚合投递与成本 */
+  function channelRoiRows() {
+    const raw = HR.data.raw;
+    return HR.SOURCES.map((ch) => {
+      const resumes = raw.candidates.filter((c) => (c.source || '其他') === ch).length;
+      const apps = raw.applications.filter((a) => {
+        const r = HR.data.resume(a.resumeId);
+        return r && (r.source || '其他') === ch;
+      });
+      const cost = raw.jobs
+        .filter((j) => !j.archived && (j.channel || HR.SOURCES[0]) === ch)
+        .reduce((n, j) => n + (Number(j.channelCost) || 0), 0);
+      const hires = apps.filter((a) => a.hired).length;
+      return {
+        ch: ch,
+        resumes: resumes,
+        interviews: apps.filter((a) => a.attended).length,
+        offers: apps.filter((a) => a.offered).length,
+        hires: hires,
+        cost: cost,
+        perHire: hires > 0 && cost > 0 ? Math.round(cost / hires) : null
+      };
+    }).filter((x) => x.resumes || x.interviews || x.cost);
+  }
+
+  function roiHtml() {
+    const rows = channelRoiRows();
+    if (!rows.length) {
+      return HR.ui.empty('database', '暂无渠道数据', '导入简历后，这里会按来源渠道统计转化与成本');
+    }
+    return (
+      '<div class="table-wrap"><table><thead><tr>' +
+      '<th>渠道</th><th class="mono">简历数</th><th class="mono">面试数</th>' +
+      '<th class="mono">offer 数</th><th class="mono">入职数</th><th class="mono">单个入职成本</th>' +
+      '</tr></thead><tbody>' +
+      rows
+        .map(
+          (r, i) =>
+            '<tr class="' + (i % 2 ? 'alt' : '') + '">' +
+            '<td>' + esc(r.ch) + '</td>' +
+            '<td class="mono">' + r.resumes + '</td>' +
+            '<td class="mono">' + r.interviews + '</td>' +
+            '<td class="mono">' + r.offers + '</td>' +
+            '<td class="mono">' + r.hires + '</td>' +
+            '<td class="mono">' + (r.perHire === null ? '—' : '¥' + r.perHire.toLocaleString('zh-CN')) + '</td>' +
+            '</tr>'
+        )
+        .join('') +
+      '</tbody></table></div>' +
+      '<div class="muted small" style="margin-top:6px">成本取自岗位编辑里的「渠道投入费用」，按主招渠道汇总；单个入职成本 = 该渠道总投入 ÷ 该渠道入职人数。</div>'
+    );
+  }
+
   function bannerHtml(list) {
     if (!list.length) return '';
     const worst = util.daysSince(list[0].lastFollowUpAt);
     return (
-      '<div class="alert-banner">' +
-      '<span class="ab-ico">⚠️</span>' +
-      '<span class="ab-text">你有 <b>' + list.length + '</b> 位候选人超 3 天未跟进，最久的已 <b>' + worst + '</b> 天</span>' +
+      '<div class="alert-banner clickable" id="abBanner">' +
+      '<span class="ab-ico">' + HR.ico('alert-triangle', 18) + '</span>' +
+      '<span class="ab-text">有 <b>' + list.length + '</b> 位候选人超过 <b>3</b> 天未跟进，最久的已 <b>' + worst + '</b> 天</span>' +
       '<button class="btn outline-danger ab-btn" id="abGo">立即处理</button>' +
       '</div>'
     );
@@ -315,6 +475,17 @@
         statCard('interview', 'message-square', pendingInterview, '待面试') +
         // 待跟进警示横幅：通栏显示在统计卡片下方（有数据时才渲染）
         bannerHtml(overdue) +
+
+        '<div class="card tfunnel-card"><div class="card-head">' +
+        '<h3>' + HR.ico('clipboard-check') + ' 整体招聘漏斗</h3>' +
+        '<span class="muted small">全部岗位汇总</span></div>' +
+        '<div id="tfBody"></div></div>' +
+
+        '<div class="card cycle-card"><div class="card-head"><h3>' + HR.ico('clock') + ' 岗位招聘周期</h3></div>' +
+        '<div id="cycleBody"></div></div>' +
+
+        '<div class="card roi-card"><div class="card-head"><h3>' + HR.ico('dollar-sign') + ' 渠道 ROI</h3></div>' +
+        '<div id="roiBody"></div></div>' +
 
         '<div class="card funnel-card"><div class="card-head">' +
         '<h3>' + HR.ico('clipboard-check') + ' 招聘漏斗</h3>' +
@@ -363,6 +534,11 @@
 
       el.querySelector('#recentBody').innerHTML = barsSvg(recentDays());
 
+      /* 功能 2：整体漏斗 / 岗位周期表 / 渠道 ROI */
+      el.querySelector('#tfBody').innerHTML = overallFunnelHtml(overallStages());
+      el.querySelector('#cycleBody').innerHTML = cycleTableHtml();
+      el.querySelector('#roiBody').innerHTML = roiHtml();
+
       /* 统计卡数字滚动 + 图表入场动画 */
       el.querySelectorAll('.stat-num').forEach((n) => countUp(n, n.getAttribute('data-count')));
       animateIn(el);
@@ -389,9 +565,11 @@
           (overdue.length > 8 ? '<div class="muted small" style="margin-top:6px">还有 ' + (overdue.length - 8) + ' 人…</div>' : '');
       }
 
-      /* 横幅「立即处理」→ 跟进看板 */
+      /* 横幅点击 → 跟进看板 */
       const goBtn = el.querySelector('#abGo');
       if (goBtn) goBtn.addEventListener('click', () => HR.goTo('kanban'));
+      const banner = el.querySelector('#abBanner');
+      if (banner) banner.addEventListener('click', () => HR.goTo('kanban'));
     }
   });
 })();

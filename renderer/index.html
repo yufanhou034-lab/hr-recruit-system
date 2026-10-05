@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <!-- 同一份页面同时被 Electron 与网页版加载：
        Electron 下 window.api 由 preload 注入且脚本一律本地加载；网页版才会用到 CDN 解析库。 -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://registry.npmmirror.com; worker-src 'self' blob:; connect-src 'self' https://cdn.jsdelivr.net https://unpkg.com https://registry.npmmirror.com https://tessdata.projectnaptha.com data: blob:; font-src 'self' data:" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://registry.npmmirror.com; worker-src 'self' blob:; connect-src 'self' https: https://cdn.jsdelivr.net https://unpkg.com https://registry.npmmirror.com https://tessdata.projectnaptha.com data: blob:; font-src 'self' data:" />
   <title>HR 招聘管理系统</title>
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -77,6 +77,8 @@
   <script src="core/browser-parse.js"></script>
   <script src="core/bridge-web.js"></script>
   <script src="core/scoring.js"></script>
+  <script src="core/ai.js"></script>
+  <script src="core/reminder.js"></script>
   <script src="core/extract.js"></script>
   <script src="core/ui.js"></script>
   <script src="core/data.js"></script>
